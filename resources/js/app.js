@@ -25,4 +25,10 @@ app.use(router); // Beritahu aplikasi untuk menggunakan router
  * Ini memberitahu Vue untuk mengambil alih semua yang ada di dalam
  * elemen <div id="app"> di file welcome.blade.php Anda.
  */
+const token = localStorage.getItem('token');
+if (token) {
+    // Jika ada, pasang kembali ke header Axios
+    axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
+}
 app.mount('#app');
+axios.defaults.withCredentials = true;

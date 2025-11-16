@@ -3,5 +3,5 @@
 </template>
 
 <script setup>
-// File ini bisa kosong untuk saat ini
+// File ini sekarang bisa kosong
 </script>
