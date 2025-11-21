@@ -35,19 +35,20 @@ const routes = [
             {
                 path: '', // URL /dashboard
                 name: 'dashboard',
-                component: DashboardOrangTua 
+                component: DashboardOrangTua,
             },
             {
                 path: '/dashboard-jadwal', // URL /dashboard-jadwal
                 name: 'dashboard.jadwal',
-                component: JadwalPage 
+                component: JadwalPage,
             },
             {
                 path: '/dashboard-catatan', // URL /dashboard-catatan
                 name: 'dashboard.catatan',
-                component: CatatanGuruPage
-            }
-]}
+                component: CatatanGuruPage,
+            },
+        ],
+    },
 ];
 
 const router = createRouter({
