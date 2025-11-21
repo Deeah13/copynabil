@@ -3,10 +3,11 @@
 import { createRouter, createWebHistory } from 'vue-router';
 import LandingPage from './Pages/LandingPage.vue';
 import LoginPage from './Pages/LoginPage.vue'; 
-import AuthenticatedLayout from './layouts/AuthenticatedLayout.vue'; 
+import AuthenticatedLayout from './layouts/AuthenticatedLayout.vue';
 import DashboardOrangTua from './Pages/DashboardOrangTua.vue';
 import JadwalPage from './Pages/JadwalPage.vue';
 import CatatanGuruPage from './Pages/CatatanGuruPage.vue';
+import DashboardGuru from './Pages/DashboardGuru.vue';
 
 const routes = [
     {
@@ -20,6 +21,12 @@ const routes = [
         component: LoginPage,
     },
     {
+        path: '/dashboard-guru',
+        name: 'dashboard.guru',
+        component: DashboardGuru,
+        meta: { requiresAuth: true },
+    },
+    {
         path: '/dashboard',
         component: AuthenticatedLayout, // Gunakan Layout sebagai induk
         meta: { requiresAuth: true },
@@ -28,19 +35,20 @@ const routes = [
             {
                 path: '', // URL /dashboard
                 name: 'dashboard',
-                component: DashboardOrangTua 
+                component: DashboardOrangTua,
             },
             {
                 path: '/dashboard-jadwal', // URL /dashboard-jadwal
                 name: 'dashboard.jadwal',
-                component: JadwalPage 
+                component: JadwalPage,
             },
             {
                 path: '/dashboard-catatan', // URL /dashboard-catatan
                 name: 'dashboard.catatan',
-                component: CatatanGuruPage
-            }
-]}
+                component: CatatanGuruPage,
+            },
+        ],
+    },
 ];
 
 const router = createRouter({

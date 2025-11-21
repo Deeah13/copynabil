@@ -5,6 +5,7 @@ import './bootstrap'; // Ini file 'bootstrap.js' bawaan Laravel, bukan CSS
 
 // Impor fungsi 'createApp' dari Vue
 import { createApp } from 'vue';
+import axios from 'axios';
 
 // Impor router Anda (yang akan menentukan halaman mana yang dimuat)
 import router from './router'; 
