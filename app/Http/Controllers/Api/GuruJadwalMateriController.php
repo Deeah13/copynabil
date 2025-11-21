@@ -219,8 +219,23 @@ class GuruJadwalMateriController extends Controller
         }
     }
 
-    protected function mapSchedule(JadwalSesi $jadwal): array
+    protected function mapSchedule($jadwal): array
     {
+        // Guard against unexpected payloads reaching this mapper so we never raise a
+        // type error back to the client. When an id or raw array slips through, we
+        // resolve it to a full JadwalSesi instance with materi already loaded.
+        if (is_numeric($jadwal) || is_string($jadwal)) {
+            $jadwal = JadwalSesi::with('materi')->find($jadwal);
+        }
+
+        if ($jadwal instanceof JadwalSesi === false) {
+            abort(422, 'Jadwal tidak valid atau tidak ditemukan.');
+        }
+
+        if (!$jadwal->relationLoaded('materi')) {
+            $jadwal->load('materi');
+        }
+
         $jadwal = $this->refreshStatus($jadwal);
 
         return [
