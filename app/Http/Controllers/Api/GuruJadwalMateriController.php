@@ -16,18 +16,17 @@ class GuruJadwalMateriController extends Controller
     {
         $user = $request->user();
 
-        $query = JadwalSesi::with('materi')->orderBy('waktu_mulai');
+        $query = JadwalSesi::with('materi')->orderByDesc('waktu_mulai');
         if ($user) {
             $query->where('guru_id', $user->id);
         }
 
-        $data = $query->get()->map(function ($item) {
-            $item = $this->refreshStatus($item);
-
+        $data = $query->paginate(7);
+        $data->getCollection()->transform(function ($item) {
             return $this->mapSchedule($item);
         });
 
-        return response()->json(['data' => $data]);
+        return response()->json($data);
     }
 
     public function store(Request $request)
