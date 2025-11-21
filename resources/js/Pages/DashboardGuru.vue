@@ -325,7 +325,6 @@
                   </div>
                 </div>
               </article>
-<<<<<<< HEAD
               <div v-if="jadwalPagination.lastPage > 1" class="flex items-center justify-center gap-3 pt-2">
                 <button
                   class="px-4 py-2 rounded-full border border-gray-200 text-sm font-semibold"
@@ -344,32 +343,6 @@
                 >
                   Halaman Berikutnya
                 </button>
-=======
-
-              <div v-if="totalSchedulePages > 1" class="flex items-center justify-between pt-2">
-                <p class="text-sm text-gray-500">
-                  Menampilkan {{ scheduleRangeLabel }} dari {{ sortedSchedules.length }} jadwal
-                </p>
-                <div class="flex items-center gap-2">
-                  <button
-                    type="button"
-                    class="px-3 py-1.5 rounded-full border border-gray-200 text-sm font-semibold text-gray-700 disabled:opacity-50"
-                    :disabled="schedulePagination.page === 1"
-                    @click="prevSchedulePage"
-                  >
-                    ‹
-                  </button>
-                  <span class="text-sm text-gray-600">Halaman {{ schedulePagination.page }} / {{ totalSchedulePages }}</span>
-                  <button
-                    type="button"
-                    class="px-3 py-1.5 rounded-full border border-gray-200 text-sm font-semibold text-gray-700 disabled:opacity-50"
-                    :disabled="schedulePagination.page === totalSchedulePages"
-                    @click="nextSchedulePage"
-                  >
-                    ›
-                  </button>
-                </div>
->>>>>>> 38f93a635923113b1c42d861853d4166d9c57eb8
               </div>
             </div>
           </article>
@@ -1004,16 +977,12 @@ const notifications = ref([
 ]);
 
 const jadwalMateri = ref([]);
-<<<<<<< HEAD
 const jadwalPagination = reactive({
   page: 1,
   lastPage: 1,
   hasNext: false,
   hasPrev: false,
 });
-=======
-const schedulePagination = reactive({ page: 1, perPage: 8 });
->>>>>>> 38f93a635923113b1c42d861853d4166d9c57eb8
 const isLoadingJadwal = ref(true);
 const successMessage = ref('');
 const errorMessage = ref('');
@@ -1206,11 +1175,7 @@ const loadJadwalMateri = async (page = jadwalPagination.page) => {
       params: { page },
     });
     jadwalMateri.value = data.data || [];
-<<<<<<< HEAD
     updatePaginationState(data.meta);
-=======
-    schedulePagination.page = 1;
->>>>>>> 38f93a635923113b1c42d861853d4166d9c57eb8
   } catch (error) {
     console.error('Gagal memuat jadwal guru:', error);
     updatePaginationState();
@@ -1342,14 +1307,8 @@ const submitAddSchedule = async () => {
       schedulePagination.page = 1;
     }
     setSuccess('Jadwal dan materi berhasil ditambahkan.');
-<<<<<<< HEAD
     jadwalPagination.page = 1;
     await loadJadwalMateri(1);
-=======
-    if (!created) {
-      await loadJadwalMateri();
-    }
->>>>>>> 38f93a635923113b1c42d861853d4166d9c57eb8
   } catch (error) {
     console.error('Gagal menambahkan jadwal:', error);
     const serverErrors = error.response?.data?.errors;
