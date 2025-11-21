@@ -16,22 +16,27 @@ class GuruJadwalMateriController extends Controller
     {
         $user = $request->user();
 
-        $query = JadwalSesi::with('materi')->orderBy('waktu_mulai');
+        $query = JadwalSesi::with('materi')->orderByDesc('waktu_mulai');
         if ($user) {
             $query->where('guru_id', $user->id);
         }
 
-        $data = $query->get()->map(function ($item) {
-            $item = $this->refreshStatus($item);
-
+        $data = $query->paginate(7);
+        $data->getCollection()->transform(function ($item) {
             return $this->mapSchedule($item);
         });
 
-        return response()->json(['data' => $data]);
+        return response()->json($data);
     }
 
     public function store(Request $request)
     {
+        $guruId = optional($request->user())->id;
+
+        if (!$guruId) {
+            abort(401, 'Guru tidak terautentikasi.');
+        }
+
         $validator = Validator::make($request->all(), [
             'topik' => ['required', 'string', 'max:255'],
             'tanggal' => ['required', 'date'],
@@ -73,7 +78,7 @@ class GuruJadwalMateriController extends Controller
             'jumlah_peserta' => $validated['jumlah_peserta'] ?? null,
             'status' => $this->resolveStatus($start, $end),
             'topik_pembelajaran' => $validated['topik_pembelajaran'] ?? null,
-            'guru_id' => optional($request->user())->id ?? 1,
+            'guru_id' => $guruId,
         ]);
 
         $this->storeUploads($request, $jadwal, $validated);
