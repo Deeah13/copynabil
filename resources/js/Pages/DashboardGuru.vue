@@ -1139,11 +1139,13 @@ const resetAddForm = () => {
 
 const openAddSchedule = () => {
   resetAddForm();
+  successMessage.value = '';
   showAddModal.value = true;
 };
 
 const closeAddSchedule = () => {
   showAddModal.value = false;
+  addTimeError.value = '';
 };
 
 const handleMaterialFiles = (event, targetForm) => {
@@ -1235,7 +1237,13 @@ const submitAddSchedule = async () => {
     await loadJadwalMateri();
   } catch (error) {
     console.error('Gagal menambahkan jadwal:', error);
-    setError('Jam selesai harus setelah jam mulai atau periksa kembali kelengkapan form.');
+    const serverErrors = error.response?.data?.errors;
+    if (serverErrors?.waktu_selesai?.length) {
+      addTimeError.value = serverErrors.waktu_selesai[0];
+      return;
+    }
+
+    setError(error.response?.data?.message || 'Terjadi kesalahan saat menambahkan jadwal.');
   } finally {
     uploadProgress.value = 0;
   }
@@ -1404,7 +1412,13 @@ const submitEditSchedule = async () => {
     await loadJadwalMateri();
   } catch (error) {
     console.error('Gagal memperbarui jadwal:', error);
-    setError('Tidak dapat memperbarui jadwal. Pastikan rentang waktunya benar.');
+    const serverErrors = error.response?.data?.errors;
+    if (serverErrors?.waktu_selesai?.length) {
+      editTimeError.value = serverErrors.waktu_selesai[0];
+      return;
+    }
+
+    setError(error.response?.data?.message || 'Tidak dapat memperbarui jadwal. Pastikan rentang waktunya benar.');
   }
 };
 
