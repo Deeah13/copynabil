@@ -170,20 +170,18 @@
                 <p class="text-sm font-semibold text-[#78AE4E]">Aksi Cepat</p>
                 <h2 class="text-xl font-bold text-gray-900">Kelola kegiatan mengajar dengan cepat</h2>
               </div>
-              <button class="px-4 py-2 text-sm font-semibold text-white bg-[#78AE4E] rounded-full shadow">
-                Tambah Aksi
-              </button>
             </div>
 
             <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
-              <article v-for="action in quickActions" :key="action.id"
-                class="rounded-2xl border border-gray-100 p-4 hover:border-[#78AE4E] transition">
+              <button type="button" v-for="action in quickActions" :key="action.id"
+                @click="handleQuickAction(action.id)"
+                class="text-left rounded-2xl border border-gray-100 p-4 hover:border-[#78AE4E] hover:shadow transition bg-white">
                 <div :class="action.iconWrapper" class="w-10 h-10 rounded-full flex items-center justify-center mb-3">
                   <component :is="action.icon" class="w-5 h-5" />
                 </div>
                 <p class="font-semibold text-gray-900">{{ action.title }}</p>
                 <p class="text-sm text-gray-500 mt-1">{{ action.description }}</p>
-              </article>
+              </button>
             </div>
           </section>
 
@@ -194,19 +192,11 @@
                 <p class="text-sm font-semibold text-[#78AE4E]">Jadwal Pembelajaran</p>
                 <h2 class="text-xl font-bold text-gray-900">Aktivitas minggu ini</h2>
               </div>
-              <div class="flex gap-3">
-                <button class="px-4 py-2 rounded-full border border-gray-200 text-sm font-semibold text-gray-600">
-                  Minggu Ini
-                </button>
-                <button class="px-4 py-2 rounded-full bg-[#78AE4E] text-white text-sm font-semibold">
-                  Buat Jadwal
-                </button>
-              </div>
             </div>
 
             <div class="space-y-4">
-              <article v-for="lesson in teachingSchedules" :key="lesson.id"
-                class="p-5 rounded-2xl border border-gray-100 bg-gradient-to-r from-white to-[#f7fdf3] flex flex-col gap-3">
+              <article v-for="lesson in teachingSchedules" :key="lesson.id" @click="openScheduleDetail(lesson)"
+                class="cursor-pointer p-5 rounded-2xl border border-gray-100 bg-gradient-to-r from-white to-[#f7fdf3] flex flex-col gap-3 hover:shadow">
                 <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
                   <div>
                     <p class="text-sm text-gray-500">{{ lesson.dateLabel }}</p>
@@ -230,6 +220,7 @@
                   </div>
                 </div>
               </article>
+              <p v-if="!teachingSchedules.length" class="text-center text-gray-400 text-sm py-4">Belum ada aktivitas di minggu ini</p>
             </div>
           </section>
         </section>
@@ -444,6 +435,47 @@
           </article>
         </section>
       </main>
+    </div>
+
+    <!-- Detail Aktivitas Minggu Ini -->
+    <div v-if="selectedSchedule" class="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+      <div class="bg-white rounded-3xl w-full max-w-xl shadow-2xl overflow-hidden">
+        <header class="flex items-center justify-between px-6 py-4 border-b border-gray-100 bg-[#f7f5f2]">
+          <div>
+            <p class="text-sm text-[#78AE4E] font-semibold">Detail Jadwal</p>
+            <p class="text-lg font-bold text-gray-900">{{ selectedSchedule.subject }}</p>
+          </div>
+          <button @click="closeScheduleDetail" class="text-gray-400 hover:text-gray-600 text-xl">×</button>
+        </header>
+
+        <div class="p-6 space-y-3 text-sm text-gray-700">
+          <div class="flex items-center justify-between">
+            <span class="text-gray-500">Tanggal</span>
+            <span class="font-semibold text-gray-900">{{ selectedSchedule.dateLabel }}</span>
+          </div>
+          <div class="flex items-center justify-between">
+            <span class="text-gray-500">Waktu</span>
+            <span class="font-semibold text-gray-900">{{ selectedSchedule.time }}</span>
+          </div>
+          <div class="flex items-center justify-between">
+            <span class="text-gray-500">Kelas</span>
+            <span class="font-semibold text-gray-900">{{ selectedSchedule.classroom }}</span>
+          </div>
+          <div class="flex items-center justify-between">
+            <span class="text-gray-500">Status</span>
+            <span class="px-3 py-1 rounded-full text-xs font-semibold" :class="selectedSchedule.badgeColor">{{ selectedSchedule.status }}</span>
+          </div>
+          <div class="pt-3 border-t border-gray-100">
+            <p class="text-gray-500 mb-1">Materi</p>
+            <p class="font-semibold text-gray-900">{{ selectedSchedule.material }}</p>
+          </div>
+        </div>
+
+        <footer class="px-6 py-4 border-t border-gray-100 bg-[#f7f5f2] flex items-center justify-end gap-3">
+          <button @click="closeScheduleDetail" class="px-5 py-2 rounded-full border border-gray-200 text-sm font-semibold text-gray-600">Tutup</button>
+          <button @click="handleQuickAction('session')" class="px-6 py-2 rounded-full bg-[#78AE4E] text-white font-semibold shadow">Kelola Jadwal</button>
+        </footer>
+      </div>
     </div>
 
     <!-- Modal Catatan Perkembangan Siswa -->
@@ -759,45 +791,6 @@ const menus = reactive({
 const activeSection = ref('beranda');
 const headerSubtitle = ref('Menu Utama · Beranda');
 
-const summaryCards = [
-  {
-    id: 'students',
-    subtitle: 'Total Siswa',
-    value: '32 Siswa',
-    description: '4 kelas aktif',
-    trendLabel: '3 siswa butuh perhatian',
-    trendColor: 'text-amber-500',
-    trendIcon: ArrowDownCircleIcon,
-  },
-  {
-    id: 'sessions',
-    subtitle: 'Sesi Minggu Ini',
-    value: '12 Sesi',
-    description: '5 sesi selesai',
-    trendLabel: '4 sesi tersisa',
-    trendColor: 'text-[#78AE4E]',
-    trendIcon: ArrowUpCircleIcon,
-  },
-  {
-    id: 'grades',
-    subtitle: 'Laporan Kelas',
-    value: '150 Penilaian',
-    description: 'Minggu ini',
-    trendLabel: '95% sudah dinilai',
-    trendColor: 'text-[#78AE4E]',
-    trendIcon: CheckCircleIcon,
-  },
-  {
-    id: 'materials',
-    subtitle: 'Materi Terunggah',
-    value: '28 Materi',
-    description: '5 materi baru minggu ini',
-    trendLabel: '2 menunggu review',
-    trendColor: 'text-amber-500',
-    trendIcon: ArrowDownCircleIcon,
-  },
-];
-
 const quickActions = [
   {
     id: 'session',
@@ -826,99 +819,6 @@ const quickActions = [
     description: 'Lihat hasil terbaru',
     icon: DocumentTextIcon,
     iconWrapper: 'bg-[#fdecef] text-[#ef476f]',
-  },
-];
-
-const teachingSchedules = [
-  {
-    id: 1,
-    dateLabel: '17 Oktober 2025 · 08.00 - 09.40',
-    subject: 'Matematika',
-    status: 'Akan Datang',
-    badgeColor: 'bg-[#eaf6df] text-[#78AE4E] font-semibold',
-    time: '08.00 - 09.40',
-    classroom: 'Kelas 10 IPA',
-    material: 'Aljabar Lanjutan',
-  },
-  {
-    id: 2,
-    dateLabel: '17 Oktober 2025 · 10.00 - 11.40',
-    subject: 'Fisika',
-    status: 'Akan Datang',
-    badgeColor: 'bg-[#eaf6df] text-[#78AE4E] font-semibold',
-    time: '10.00 - 11.40',
-    classroom: 'Kelas 12 IPA',
-    material: 'Hukum Newton',
-  },
-  {
-    id: 3,
-    dateLabel: '17 Oktober 2025 · 13.00 - 14.40',
-    subject: 'Matematika',
-    status: 'Selesai',
-    badgeColor: 'bg-gray-100 text-gray-600 font-semibold',
-    time: '13.00 - 14.40',
-    classroom: 'Kelas 11 IPA',
-    material: 'Integral Dasar',
-  },
-];
-
-const detailedSchedules = [
-  {
-    id: 1,
-    day: 'Senin',
-    subject: 'Matematika Terapan',
-    time: '08.00 - 09.40',
-    class: 'XI IPA 1',
-    room: 'Ruang 203',
-    material: 'Limit Fungsi',
-  },
-  {
-    id: 2,
-    day: 'Selasa',
-    subject: 'Fisika Modern',
-    time: '10.00 - 11.40',
-    class: 'XII IPA 2',
-    room: 'Lab Fisika',
-    material: 'Dualisme Gelombang',
-  },
-  {
-    id: 3,
-    day: 'Rabu',
-    subject: 'Matematika',
-    time: '13.00 - 14.40',
-    class: 'XI IPA 3',
-    room: 'Ruang 205',
-    material: 'Deret Tak Hingga',
-  },
-];
-
-const latestMaterials = [
-  {
-    id: 1,
-    title: 'Modul Latihan Limit',
-    subject: 'Matematika',
-    class: 'XI IPA',
-    updatedAt: 'Diunggah 2 jam lalu',
-    status: 'Sukses',
-    badge: 'bg-green-100 text-green-700',
-  },
-  {
-    id: 2,
-    title: 'Video Eksperimen Newton',
-    subject: 'Fisika',
-    class: 'X IPA',
-    updatedAt: 'Diunggah kemarin',
-    status: 'Dalam Review',
-    badge: 'bg-amber-100 text-amber-700',
-  },
-  {
-    id: 3,
-    title: 'Rangkuman Geometri',
-    subject: 'Matematika',
-    class: 'XII IPA',
-    updatedAt: 'Diunggah 3 hari lalu',
-    status: 'Sukses',
-    badge: 'bg-green-100 text-green-700',
   },
 ];
 
@@ -1053,6 +953,7 @@ const showEditScheduleModal = ref(false);
 const showEditMateriModal = ref(false);
 const materialInput = ref(null);
 const newMaterialInput = ref(null);
+const selectedSchedule = ref(null);
 
 const addForm = reactive({
   topik: '',
@@ -1106,6 +1007,36 @@ const navClass = (section) => [
     ? 'bg-[#f0f9eb] text-[#78AE4E] font-semibold'
     : 'text-gray-500 hover:text-gray-900 hover:bg-gray-50',
 ];
+
+const handleQuickAction = (actionId) => {
+  if (actionId === 'session') {
+    activeSection.value = 'jadwalMateri';
+    openAddSchedule();
+    return;
+  }
+
+  if (actionId === 'material') {
+    activeSection.value = 'jadwalMateri';
+    if (jadwalMateri.value.length) {
+      openEditMateri(jadwalMateri.value[0]);
+    } else {
+      openAddSchedule();
+    }
+    return;
+  }
+
+  if (actionId === 'report' || actionId === 'history') {
+    activeSection.value = 'kehadiran';
+  }
+};
+
+const openScheduleDetail = (schedule) => {
+  selectedSchedule.value = schedule;
+};
+
+const closeScheduleDetail = () => {
+  selectedSchedule.value = null;
+};
 
 watch(activeSection, (value) => {
   const labelMap = {
@@ -1274,6 +1205,104 @@ const formatTimeRange = (start, end) => {
   const endTime = formatTime(end);
   return startTime && endTime ? `${startTime} - ${endTime}` : '-';
 };
+
+const startOfWeek = () => {
+  const now = new Date();
+  const start = new Date(now);
+  const day = now.getDay() === 0 ? 6 : now.getDay() - 1;
+  start.setDate(now.getDate() - day);
+  start.setHours(0, 0, 0, 0);
+  return start;
+};
+
+const isWithinCurrentWeek = (value) => {
+  if (!value) return false;
+  const date = new Date(value);
+  const start = startOfWeek();
+  const end = new Date(start);
+  end.setDate(start.getDate() + 6);
+  end.setHours(23, 59, 59, 999);
+  return date >= start && date <= end;
+};
+
+const teachingSchedules = computed(() => {
+  return jadwalMateri.value
+    .filter((item) => isWithinCurrentWeek(item.waktu_mulai))
+    .map((item) => {
+      const dateLabel = `${formatFullDate(item.waktu_mulai)} · ${formatTimeRange(item.waktu_mulai, item.waktu_selesai)}`;
+      const material = item.materi?.[0]?.judul || 'Belum ada materi';
+
+      return {
+        id: item.id,
+        dateLabel,
+        subject: item.topik,
+        status: item.status,
+        badgeColor: badgeClass(item.status),
+        time: formatTimeRange(item.waktu_mulai, item.waktu_selesai),
+        classroom: item.lokasi || 'Lokasi belum diisi',
+        material,
+      };
+    });
+});
+
+const summaryCards = computed(() => {
+  const totalStudents = new Set(attendanceRecords.value.map((record) => record.name)).size;
+  const classCount = new Set(attendanceRecords.value.map((record) => record.session)).size;
+  const statusTotals = attendanceRecords.value.reduce((acc, record) => {
+    acc[record.status] = (acc[record.status] || 0) + 1;
+    return acc;
+  }, {});
+
+  const weeklySessions = teachingSchedules.value.length;
+  const completedSessions = teachingSchedules.value.filter((session) => session.status?.toLowerCase() === 'selesai').length;
+  const materialsCount = jadwalMateri.value.reduce((acc, schedule) => acc + (schedule.materi?.length || 0), 0);
+  const weeklyMaterials = jadwalMateri.value
+    .filter((schedule) => isWithinCurrentWeek(schedule.waktu_mulai))
+    .reduce((acc, schedule) => acc + (schedule.materi?.length || 0), 0);
+  const pendingMaterials = jadwalMateri.value.reduce(
+    (acc, schedule) => acc + (schedule.materi?.filter((m) => m.status && m.status.toLowerCase().includes('unggu')).length || 0),
+    0
+  );
+
+  return [
+    {
+      id: 'students',
+      subtitle: 'Total Siswa',
+      value: `${totalStudents} Siswa`,
+      description: `${classCount} kelas aktif`,
+      trendLabel: `${statusTotals.Alpha || 0} siswa butuh perhatian`,
+      trendColor: statusTotals.Alpha ? 'text-amber-500' : 'text-[#78AE4E]',
+      trendIcon: statusTotals.Alpha ? ArrowDownCircleIcon : CheckCircleIcon,
+    },
+    {
+      id: 'sessions',
+      subtitle: 'Sesi Minggu Ini',
+      value: `${weeklySessions} Sesi`,
+      description: `${Math.max(weeklySessions - completedSessions, 0)} sesi tersisa`,
+      trendLabel: `${completedSessions} sesi selesai`,
+      trendColor: 'text-[#78AE4E]',
+      trendIcon: ArrowUpCircleIcon,
+    },
+    {
+      id: 'grades',
+      subtitle: 'Laporan Kelas',
+      value: `${attendanceRecords.value.length} Laporan`,
+      description: `${classCount} kelas tercatat`,
+      trendLabel: `${statusTotals.Hadir || 0} siswa hadir`,
+      trendColor: 'text-[#78AE4E]',
+      trendIcon: CheckCircleIcon,
+    },
+    {
+      id: 'materials',
+      subtitle: 'Materi Terunggah',
+      value: `${materialsCount} Materi`,
+      description: `${weeklyMaterials} materi minggu ini`,
+      trendLabel: pendingMaterials ? `${pendingMaterials} menunggu review` : 'Semua materi aktif',
+      trendColor: pendingMaterials ? 'text-amber-500' : 'text-[#78AE4E]',
+      trendIcon: pendingMaterials ? ArrowDownCircleIcon : CheckCircleIcon,
+    },
+  ];
+});
 
 const badgeClass = (status) => {
   if (status === 'Akan Datang') return 'bg-[#eaf6df] text-[#78AE4E] font-semibold';
