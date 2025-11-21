@@ -332,58 +332,152 @@
         </section>
 
         <!-- Kehadiran -->
-        <section v-if="activeSection === 'kehadiran'" class="space-y-8">
-          <article class="bg-white rounded-3xl border border-gray-100 shadow-sm p-6">
-            <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-6">
+        <section v-if="activeSection === 'kehadiran'" class="space-y-6">
+          <header class="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+            <div>
+              <p class="text-sm font-semibold text-[#78AE4E]">Kehadiran</p>
+              <h2 class="text-2xl font-bold text-gray-900">Rekapitulasi Kehadiran</h2>
+              <p class="text-sm text-gray-500">Pantau kehadiran siswa dan tambahkan catatan perkembangan</p>
+            </div>
+            <button class="px-4 py-2 border border-gray-200 rounded-full text-sm font-semibold text-gray-600">
+              Bahasa Indonesia
+            </button>
+          </header>
+
+          <div class="grid grid-cols-2 xl:grid-cols-4 gap-4">
+            <article v-for="card in attendanceSummaryCards" :key="card.id"
+              class="rounded-3xl border border-gray-100 bg-white shadow-sm p-4 flex items-center justify-between">
               <div>
-                <p class="text-sm font-semibold text-[#78AE4E]">Kehadiran Siswa</p>
-                <h2 class="text-2xl font-bold text-gray-900">Ringkasan Bulan Ini</h2>
+                <p class="text-sm text-gray-500">{{ card.label }}</p>
+                <p class="text-3xl font-bold text-gray-900 mt-1">{{ card.value }}</p>
+                <p class="text-xs text-gray-400">{{ card.subtitle }}</p>
               </div>
-              <div class="flex gap-4">
-                <div class="text-center">
-                  <p class="text-4xl font-bold text-gray-900">{{ attendanceSummary.present }}%</p>
-                  <p class="text-sm text-gray-500">Hadir</p>
+              <span :class="card.badge" class="px-3 py-1 rounded-full text-sm font-semibold">{{ card.label }}</span>
+            </article>
+          </div>
+
+          <article class="bg-white rounded-3xl border border-gray-100 shadow-sm p-6">
+            <div class="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4 mb-4">
+              <div>
+                <p class="text-sm font-semibold text-[#78AE4E]">Detail Kehadiran</p>
+                <h3 class="text-xl font-bold text-gray-900">Akses detail catatan kehadiran</h3>
+              </div>
+              <div class="flex flex-wrap items-center gap-3">
+                <div class="flex items-center gap-2 bg-gray-50 border border-gray-200 rounded-full px-3 py-2">
+                  <MagnifyingGlassIcon class="w-5 h-5 text-gray-400" />
+                  <input v-model="attendanceFilters.query" type="text" placeholder="Cari nama siswa"
+                    class="bg-transparent focus:outline-none text-sm text-gray-700" />
                 </div>
-                <div class="text-center">
-                  <p class="text-4xl font-bold text-amber-500">{{ attendanceSummary.late }}%</p>
-                  <p class="text-sm text-gray-500">Terlambat</p>
-                </div>
-                <div class="text-center">
-                  <p class="text-4xl font-bold text-red-500">{{ attendanceSummary.absent }}%</p>
-                  <p class="text-sm text-gray-500">Absen</p>
+                <div class="flex items-center gap-2 bg-gray-50 border border-gray-200 rounded-full px-3 py-2">
+                  <FunnelIcon class="w-5 h-5 text-gray-400" />
+                  <select v-model="attendanceFilters.status" class="bg-transparent focus:outline-none text-sm text-gray-700">
+                    <option v-for="option in attendanceStatusOptions" :key="option" :value="option">{{ option }}</option>
+                  </select>
                 </div>
               </div>
+            </div>
+
+            <div v-if="successMessage" class="mb-4 rounded-2xl bg-green-50 border border-green-200 px-4 py-3 text-sm text-green-800 font-semibold">
+              {{ successMessage }}
             </div>
 
             <div class="overflow-hidden rounded-2xl border border-gray-100">
               <table class="min-w-full divide-y divide-gray-100">
                 <thead class="bg-gray-50">
                   <tr class="text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">
-                    <th class="px-6 py-3">Nama</th>
-                    <th class="px-6 py-3">Kelas</th>
-                    <th class="px-6 py-3">Pertemuan</th>
+                    <th class="px-6 py-3">No</th>
+                    <th class="px-6 py-3">Nama Siswa</th>
                     <th class="px-6 py-3">Status</th>
-                    <th class="px-6 py-3">Catatan</th>
+                    <th class="px-6 py-3">Catatan Perkembangan Siswa</th>
+                    <th class="px-6 py-3">Aksi</th>
                   </tr>
                 </thead>
                 <tbody class="bg-white divide-y divide-gray-100 text-sm text-gray-700">
-                  <tr v-for="student in attendanceRecords" :key="student.id">
-                    <td class="px-6 py-4 font-semibold text-gray-900">{{ student.name }}</td>
-                    <td class="px-6 py-4">{{ student.class }}</td>
-                    <td class="px-6 py-4">{{ student.session }}</td>
+                  <tr v-for="(student, index) in paginatedAttendance" :key="student.id">
+                    <td class="px-6 py-4">{{ attendanceStartIndex + index }}</td>
                     <td class="px-6 py-4">
-                      <span class="px-3 py-1 rounded-full text-xs font-semibold" :class="student.badge">
+                      <p class="font-semibold text-gray-900">{{ student.name }}</p>
+                      <p class="text-xs text-gray-500">{{ student.session }}</p>
+                    </td>
+                    <td class="px-6 py-4">
+                      <span class="px-3 py-1 rounded-full text-xs font-semibold" :class="statusBadgeClass(student.status)">
                         {{ student.status }}
                       </span>
                     </td>
-                    <td class="px-6 py-4 text-gray-500">{{ student.note }}</td>
+                    <td class="px-6 py-4">
+                      <button @click="openNoteModal(student)"
+                        class="px-4 py-2 rounded-full border border-gray-200 text-sm font-semibold text-gray-700 hover:border-[#78AE4E] hover:text-[#78AE4E] flex items-center gap-2">
+                        <DocumentTextIcon class="w-5 h-5" />
+                        Catatan Perkembangan Siswa
+                      </button>
+                      <p v-if="student.note" class="mt-2 text-xs text-gray-500">{{ student.note }}</p>
+                    </td>
+                    <td class="px-6 py-4 flex items-center gap-3">
+                      <button @click="handleEditAttendance(student)" class="text-[#78AE4E] hover:text-green-700" title="Edit">
+                        <PencilSquareIcon class="w-5 h-5" />
+                      </button>
+                      <button @click="removeAttendance(student.id)" class="text-red-500 hover:text-red-600" title="Hapus">
+                        <TrashIcon class="w-5 h-5" />
+                      </button>
+                    </td>
+                  </tr>
+                  <tr v-if="!paginatedAttendance.length">
+                    <td colspan="5" class="px-6 py-6 text-center text-gray-400">Tidak ada data kehadiran</td>
                   </tr>
                 </tbody>
               </table>
             </div>
+
+            <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mt-4 text-sm text-gray-500">
+              <p>{{ attendanceRangeLabel }}</p>
+              <div class="flex items-center gap-2 text-xs">
+                <span class="w-3 h-3 rounded-full bg-[#eaf6df]"></span>
+                <span>Hadir</span>
+                <span class="w-3 h-3 rounded-full bg-blue-100 ml-4"></span>
+                <span>Izin</span>
+                <span class="w-3 h-3 rounded-full bg-amber-100 ml-4"></span>
+                <span>Sakit</span>
+                <span class="w-3 h-3 rounded-full bg-red-100 ml-4"></span>
+                <span>Alpha</span>
+              </div>
+            </div>
           </article>
         </section>
       </main>
+    </div>
+
+    <!-- Modal Catatan Perkembangan Siswa -->
+    <div v-if="showNoteModal" class="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+      <div class="bg-white rounded-3xl w-full max-w-lg shadow-2xl overflow-hidden">
+        <header class="flex items-center justify-between px-6 py-4 border-b border-gray-100 bg-[#f7f5f2]">
+          <p class="text-lg font-bold text-gray-900">Catatan Perkembangan Siswa</p>
+          <button @click="closeNoteModal" class="text-gray-400 hover:text-gray-600 text-xl">×</button>
+        </header>
+
+        <div class="p-6 space-y-4">
+          <div class="bg-gray-50 border border-gray-100 rounded-2xl p-4">
+            <p class="text-sm text-gray-500">Nama Siswa</p>
+            <p class="text-lg font-semibold text-gray-900">{{ activeNoteStudent?.name }}</p>
+            <p class="text-xs text-gray-500 mt-1">{{ activeNoteStudent?.session }}</p>
+          </div>
+
+          <div>
+            <label class="text-sm font-semibold text-gray-700">Deskripsi Singkat Perkembangan Siswa</label>
+            <textarea v-model="noteForm.description" rows="4"
+              class="mt-2 w-full rounded-2xl border border-gray-200 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#78AE4E]"
+              placeholder="Tuliskan deskripsi singkat perkembangan siswa.."></textarea>
+          </div>
+        </div>
+
+        <footer class="px-6 py-4 border-t border-gray-100 bg-[#f7f5f2] flex items-center justify-end gap-3">
+          <button @click="closeNoteModal" class="px-5 py-2 rounded-full border border-gray-200 text-sm font-semibold text-gray-600">
+            Batal
+          </button>
+          <button @click="saveNote" class="px-6 py-2 rounded-full bg-[#78AE4E] text-white font-semibold shadow">
+            Simpan
+          </button>
+        </footer>
+      </div>
     </div>
 
     <!-- Modal Tambah Jadwal -->
@@ -640,14 +734,18 @@ import {
   ChevronDownIcon,
   ClipboardDocumentCheckIcon,
   ClockIcon,
+  FunnelIcon,
   DocumentArrowUpIcon,
   DocumentTextIcon,
   ExclamationCircleIcon,
   HomeIcon,
+  MagnifyingGlassIcon,
   MapPinIcon,
   UserCircleIcon,
   UserGroupIcon,
-  UserIcon
+  UserIcon,
+  PencilSquareIcon,
+  TrashIcon
 } from '@heroicons/vue/24/outline';
 import { ArrowDownCircleIcon, ArrowUpCircleIcon } from '@heroicons/vue/24/solid';
 
@@ -824,18 +922,120 @@ const latestMaterials = [
   },
 ];
 
-const attendanceSummary = reactive({
-  present: 92,
-  late: 5,
-  absent: 3,
+const attendanceStatusOptions = ['Semua', 'Hadir', 'Izin', 'Sakit', 'Alpha'];
+
+const attendanceRecords = ref([
+  { id: 1, name: 'Hanif Juansyah', session: 'Bahasa Indonesia - Pertemuan 3', status: 'Hadir', note: 'Aktif dan fokus' },
+  { id: 2, name: 'Fathiya Salsabila', session: 'Bahasa Indonesia - Pertemuan 3', status: 'Izin', note: 'Izin karena tugas lomba' },
+  { id: 3, name: 'Muhammad Umar', session: 'Bahasa Indonesia - Pertemuan 3', status: 'Hadir', note: 'Menyelesaikan tugas tepat waktu' },
+  { id: 4, name: 'Yayi Tisay', session: 'Bahasa Indonesia - Pertemuan 3', status: 'Sakit', note: 'Sakit, beristirahat di UKS' },
+  { id: 5, name: 'Cakim Mahendra', session: 'Bahasa Indonesia - Pertemuan 3', status: 'Hadir', note: 'Siswa menunjukkan peningkatan' },
+  { id: 6, name: 'Zovey Zahra', session: 'Bahasa Indonesia - Pertemuan 3', status: 'Alpha', note: 'Belum memberikan kabar' },
+  { id: 7, name: 'Sally', session: 'Bahasa Indonesia - Pertemuan 3', status: 'Hadir', note: 'Responsif saat diskusi' },
+  { id: 8, name: 'Dufi Nugraheni', session: 'Bahasa Indonesia - Pertemuan 3', status: 'Hadir', note: 'Suka membantu teman' },
+]);
+
+const attendanceFilters = reactive({
+  query: '',
+  status: 'Semua',
 });
 
-const attendanceRecords = [
-  { id: 1, name: 'Rafi Pratama', class: 'XI IPA 1', session: 'Matematika - Pertemuan 5', status: 'Hadir', badge: 'bg-green-100 text-green-700', note: 'Aktif bertanya' },
-  { id: 2, name: 'Syifa Putri', class: 'XI IPA 1', session: 'Matematika - Pertemuan 5', status: 'Hadir', badge: 'bg-green-100 text-green-700', note: 'Catatan lengkap' },
-  { id: 3, name: 'Hafidz Fadil', class: 'X IPA 2', session: 'Fisika - Pertemuan 4', status: 'Terlambat', badge: 'bg-amber-100 text-amber-700', note: 'Terlambat 10 menit' },
-  { id: 4, name: 'Dini Safitri', class: 'XI IPA 3', session: 'Matematika - Pertemuan 4', status: 'Absen', badge: 'bg-red-100 text-red-600', note: 'Izin sakit' },
-];
+const attendancePagination = reactive({
+  page: 1,
+  perPage: 8,
+});
+
+const showNoteModal = ref(false);
+const activeNoteStudent = ref(null);
+const noteForm = reactive({
+  description: '',
+});
+
+const attendanceSummaryCards = computed(() => {
+  const totals = attendanceRecords.value.reduce((acc, record) => {
+    acc[record.status] = (acc[record.status] || 0) + 1;
+    return acc;
+  }, {});
+
+  const baseCards = [
+    { id: 'hadir', label: 'Hadir', badge: 'bg-[#eaf6df] text-[#78AE4E]' },
+    { id: 'izin', label: 'Izin', badge: 'bg-blue-100 text-blue-700' },
+    { id: 'sakit', label: 'Sakit', badge: 'bg-amber-100 text-amber-700' },
+    { id: 'alpha', label: 'Alpha', badge: 'bg-red-100 text-red-600' },
+  ];
+
+  return baseCards.map((card) => ({
+    ...card,
+    value: `${totals[card.label] || 0} Siswa`,
+    subtitle: 'Rekap hari ini',
+    badge: `${card.badge} font-semibold`,
+  }));
+});
+
+const filteredAttendanceRecords = computed(() => {
+  const query = attendanceFilters.query.toLowerCase();
+  return attendanceRecords.value.filter((record) => {
+    const matchesQuery = record.name.toLowerCase().includes(query) || record.session.toLowerCase().includes(query);
+    const matchesStatus = attendanceFilters.status === 'Semua' || record.status === attendanceFilters.status;
+    return matchesQuery && matchesStatus;
+  });
+});
+
+const attendanceStartIndex = computed(() => {
+  if (!filteredAttendanceRecords.value.length) return 0;
+  return (attendancePagination.page - 1) * attendancePagination.perPage + 1;
+});
+
+const paginatedAttendance = computed(() => {
+  const start = (attendancePagination.page - 1) * attendancePagination.perPage;
+  const end = start + attendancePagination.perPage;
+  return filteredAttendanceRecords.value.slice(start, end);
+});
+
+const attendanceRangeLabel = computed(() => {
+  const total = filteredAttendanceRecords.value.length;
+  if (!total) return 'Menampilkan 0 dari 0 siswa';
+  const start = attendanceStartIndex.value;
+  const end = Math.min(start + attendancePagination.perPage - 1, total);
+  return `Menampilkan ${start}-${end} dari ${total} siswa`;
+});
+
+const statusBadgeClass = (status) => {
+  if (status === 'Hadir') return 'bg-[#eaf6df] text-[#78AE4E]';
+  if (status === 'Izin') return 'bg-blue-100 text-blue-700';
+  if (status === 'Sakit') return 'bg-amber-100 text-amber-700';
+  return 'bg-red-100 text-red-600';
+};
+
+const openNoteModal = (student) => {
+  activeNoteStudent.value = student;
+  noteForm.description = student.note || '';
+  showNoteModal.value = true;
+};
+
+const closeNoteModal = () => {
+  showNoteModal.value = false;
+  noteForm.description = '';
+  activeNoteStudent.value = null;
+};
+
+const saveNote = () => {
+  if (activeNoteStudent.value) {
+    activeNoteStudent.value.note = noteForm.description;
+    setSuccess('Catatan perkembangan siswa berhasil disimpan.');
+  }
+  closeNoteModal();
+};
+
+const handleEditAttendance = (student) => {
+  openNoteModal(student);
+};
+
+const removeAttendance = (studentId) => {
+  attendanceRecords.value = attendanceRecords.value.filter((record) => record.id !== studentId);
+  attendancePagination.page = 1;
+  setSuccess('Data kehadiran berhasil dihapus.');
+};
 
 const notifications = ref([
   { id: 1, title: 'Materi yang berhasil diunggah', message: 'Minggu ini terdapat 5 materi yang berhasil diunggah', read: false },
@@ -915,6 +1115,13 @@ watch(activeSection, (value) => {
   };
   headerSubtitle.value = labelMap[value] || 'Terminal Pintar';
 });
+
+watch(
+  () => [attendanceFilters.query, attendanceFilters.status],
+  () => {
+    attendancePagination.page = 1;
+  }
+);
 
 const toggleNotif = () => {
   isNotifOpen.value = !isNotifOpen.value;
