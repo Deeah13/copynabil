@@ -1009,19 +1009,9 @@ const navClass = (section) => [
 ];
 
 const handleQuickAction = (actionId) => {
-  if (actionId === 'session') {
+  if (actionId === 'session' || actionId === 'material') {
     activeSection.value = 'jadwalMateri';
-    openAddSchedule();
-    return;
-  }
-
-  if (actionId === 'material') {
-    activeSection.value = 'jadwalMateri';
-    if (jadwalMateri.value.length) {
-      openEditMateri(jadwalMateri.value[0]);
-    } else {
-      openAddSchedule();
-    }
+    closeScheduleDetail();
     return;
   }
 
