@@ -553,6 +553,7 @@
                 <label class="text-sm font-semibold text-gray-700">Jam Selesai</label>
                 <input v-model="addForm.jam_selesai" required type="time"
                   class="mt-1 w-full rounded-2xl border border-gray-200 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#78AE4E]">
+                <p v-if="addTimeError" class="mt-2 text-xs text-red-600 font-semibold">{{ addTimeError }}</p>
               </div>
             </div>
             <div>
@@ -633,6 +634,7 @@
               <div>
                 <label class="text-sm font-semibold text-gray-700">Jam Selesai</label>
                 <input v-model="editForm.jam_selesai" required type="time" class="mt-1 w-full rounded-2xl border border-gray-200 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#78AE4E]">
+                <p v-if="editTimeError" class="mt-2 text-xs text-red-600 font-semibold">{{ editTimeError }}</p>
               </div>
             </div>
             <div>
@@ -957,6 +959,8 @@ const successMessage = ref('');
 const errorMessage = ref('');
 const uploadProgress = ref(0);
 const materialUploadProgress = ref(0);
+const addTimeError = ref('');
+const editTimeError = ref('');
 
 const showAddModal = ref(false);
 const showEditScheduleModal = ref(false);
@@ -1130,6 +1134,7 @@ const resetAddForm = () => {
   addForm.materi_uploads = [];
   uploadProgress.value = 0;
   errorMessage.value = '';
+  addTimeError.value = '';
 };
 
 const openAddSchedule = () => {
@@ -1170,9 +1175,37 @@ const isValidTimeRange = (start, end) => {
   return endTotal > startTotal;
 };
 
+watch(
+  [() => addForm.jam_mulai, () => addForm.jam_selesai],
+  ([start, end]) => {
+    if (!start || !end) {
+      addTimeError.value = '';
+      return;
+    }
+
+    addTimeError.value = isValidTimeRange(start, end)
+      ? ''
+      : 'Jam selesai harus lebih besar dari jam mulai.';
+  }
+);
+
+watch(
+  [() => editForm.jam_mulai, () => editForm.jam_selesai],
+  ([start, end]) => {
+    if (!start || !end) {
+      editTimeError.value = '';
+      return;
+    }
+
+    editTimeError.value = isValidTimeRange(start, end)
+      ? ''
+      : 'Jam selesai harus lebih besar dari jam mulai.';
+  }
+);
+
 const submitAddSchedule = async () => {
   if (!isValidTimeRange(addForm.jam_mulai, addForm.jam_selesai)) {
-    setError('Jam selesai harus lebih besar dari jam mulai.');
+    addTimeError.value = 'Jam selesai harus lebih besar dari jam mulai.';
     return;
   }
 
@@ -1341,16 +1374,18 @@ const openEditSchedule = (schedule) => {
   editForm.jumlah_peserta = schedule.jumlah_peserta;
   editForm.status = schedule.status;
   editForm.deskripsi = schedule.deskripsi;
+  editTimeError.value = '';
   showEditScheduleModal.value = true;
 };
 
 const closeEditSchedule = () => {
   showEditScheduleModal.value = false;
+  editTimeError.value = '';
 };
 
 const submitEditSchedule = async () => {
   if (!isValidTimeRange(editForm.jam_mulai, editForm.jam_selesai)) {
-    setError('Jam selesai harus lebih besar dari jam mulai.');
+    editTimeError.value = 'Jam selesai harus lebih besar dari jam mulai.';
     return;
   }
 
