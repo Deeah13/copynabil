@@ -235,6 +235,7 @@
         </section>
 
         <!-- Jadwal & Materi -->
+<<<<<<< HEAD
         <section v-if="activeSection === 'jadwalMateri'" class="space-y-8">
           <div class="grid grid-cols-1 xl:grid-cols-3 gap-6">
             <article class="xl:col-span-2 bg-white rounded-3xl border border-gray-100 shadow-sm p-6">
