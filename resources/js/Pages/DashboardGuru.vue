@@ -248,6 +248,9 @@
             <div v-if="successMessage" class="mt-4 rounded-2xl bg-green-50 border border-green-200 px-4 py-3 text-sm text-green-800 font-semibold">
               {{ successMessage }}
             </div>
+            <div v-if="errorMessage" class="mt-4 rounded-2xl bg-red-50 border border-red-200 px-4 py-3 text-sm text-red-700 font-semibold">
+              {{ errorMessage }}
+            </div>
 
             <div v-if="isLoadingJadwal" class="mt-6 space-y-4">
               <div v-for="n in 2" :key="n" class="animate-pulse rounded-2xl bg-gray-100 h-32"></div>
@@ -299,7 +302,7 @@
                     Belum ada materi diunggah.
                   </div>
                   <div v-else class="space-y-3">
-                    <div v-for="file in schedule.materi" :key="file.id" class="flex items-center gap-3 rounded-2xl border border-gray-100 bg-white p-3">
+                    <button type="button" v-for="file in schedule.materi" :key="file.id" @click="openMaterialPreview(file)" class="flex items-center gap-3 rounded-2xl border border-gray-100 bg-white p-3 w-full text-left">
                       <div class="p-2 rounded-xl bg-[#eaf6df] text-[#78AE4E]">
                         <DocumentArrowUpIcon class="w-5 h-5" />
                       </div>
@@ -313,8 +316,8 @@
                       <span class="px-3 py-1 rounded-full text-xs font-semibold" :class="badgeClass(file.status)">
                         {{ file.status }}
                       </span>
-                      <a v-if="file.url" :href="file.url" target="_blank" class="text-xs font-semibold text-[#78AE4E]">Lihat</a>
-                    </div>
+                      <span v-if="file.url" class="text-xs font-semibold text-[#78AE4E]">Lihat</span>
+                    </button>
                   </div>
                 </div>
               </article>
@@ -524,11 +527,11 @@
         </header>
 
         <form @submit.prevent="submitAddSchedule" class="p-6 space-y-4 max-h-[75vh] overflow-y-auto">
-          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <label class="text-sm font-semibold text-gray-700">Mata Pelajaran</label>
-              <input v-model="addForm.topik" required type="text" placeholder="Masukkan nama Mata Pelajaran - Kegiatan"
-                class="mt-1 w-full rounded-2xl border border-gray-200 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#78AE4E]">
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label class="text-sm font-semibold text-gray-700">Mata Pelajaran</label>
+                <input v-model="addForm.topik" required type="text" placeholder="Masukkan nama Mata Pelajaran - Kegiatan"
+                  class="mt-1 w-full rounded-2xl border border-gray-200 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#78AE4E]">
             </div>
             <div>
               <label class="text-sm font-semibold text-gray-700">Topik Pembelajaran</label>
@@ -557,25 +560,12 @@
               <input v-model="addForm.lokasi" type="text" placeholder="Isikan lokasi kegiatan belajar mengajar"
                 class="mt-1 w-full rounded-2xl border border-gray-200 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#78AE4E]">
             </div>
-            <div>
-              <label class="text-sm font-semibold text-gray-700">Jumlah Peserta Didik</label>
-              <input v-model.number="addForm.jumlah_peserta" type="number" min="0"
-                class="mt-1 w-full rounded-2xl border border-gray-200 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#78AE4E]">
+              <div>
+                <label class="text-sm font-semibold text-gray-700">Jumlah Peserta Didik</label>
+                <input v-model.number="addForm.jumlah_peserta" type="number" min="0"
+                  class="mt-1 w-full rounded-2xl border border-gray-200 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#78AE4E]">
+              </div>
             </div>
-            <div>
-              <label class="text-sm font-semibold text-gray-700">Status Jadwal</label>
-              <select v-model="addForm.status" class="mt-1 w-full rounded-2xl border border-gray-200 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#78AE4E]">
-                <option value="Akan Datang">Akan Datang</option>
-                <option value="Berlangsung">Berlangsung</option>
-                <option value="Selesai">Selesai</option>
-              </select>
-            </div>
-            <div>
-              <label class="text-sm font-semibold text-gray-700">Status Materi</label>
-              <input v-model="addForm.materi_status" type="text" placeholder="Contoh: Terunggah"
-                class="mt-1 w-full rounded-2xl border border-gray-200 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#78AE4E]">
-            </div>
-          </div>
 
           <div>
             <label class="text-sm font-semibold text-gray-700">Deskripsi Singkat Materi</label>
@@ -585,6 +575,7 @@
 
           <div class="space-y-2">
             <label class="text-sm font-semibold text-gray-700">Tambahkan Materi</label>
+            <p class="text-xs text-gray-500">Status materi akan otomatis menjadi "Terunggah" ketika proses berhasil.</p>
             <div class="rounded-2xl border-2 border-dashed border-gray-200 bg-gray-50 px-4 py-6 text-center cursor-pointer hover:border-[#78AE4E]" @click="materialInput && materialInput.click()">
               <p class="text-sm text-gray-600">Klik untuk upload atau drag and drop</p>
               <p class="text-xs text-gray-400">PNG, MP4, PPT, DOCX, PDF</p>
@@ -616,6 +607,10 @@
           <div>
             <p class="text-sm text-[#78AE4E] font-semibold">Edit Jadwal</p>
             <p class="text-xl font-bold text-gray-900">Perbarui jadwal sesuai kebutuhan</p>
+            <div class="mt-1 flex items-center gap-2 text-sm text-gray-600">
+              <span>Status saat ini:</span>
+              <span class="px-3 py-1 rounded-full text-xs font-semibold" :class="badgeClass(editForm.status)">{{ editForm.status || 'Akan Datang' }}</span>
+            </div>
           </div>
           <button @click="closeEditSchedule" class="text-gray-400 hover:text-gray-600 text-xl">×</button>
         </header>
@@ -625,14 +620,6 @@
             <div>
               <label class="text-sm font-semibold text-gray-700">Mata Pelajaran</label>
               <input v-model="editForm.topik" required type="text" class="mt-1 w-full rounded-2xl border border-gray-200 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#78AE4E]">
-            </div>
-            <div>
-              <label class="text-sm font-semibold text-gray-700">Status Jadwal</label>
-              <select v-model="editForm.status" required class="mt-1 w-full rounded-2xl border border-gray-200 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#78AE4E]">
-                <option value="Akan Datang">Akan Datang</option>
-                <option value="Berlangsung">Berlangsung</option>
-                <option value="Selesai">Selesai</option>
-              </select>
             </div>
             <div>
               <label class="text-sm font-semibold text-gray-700">Hari, Tanggal</label>
@@ -691,39 +678,36 @@
               <label class="text-sm font-semibold text-gray-700">Deskripsi Singkat Materi</label>
               <textarea v-model="material.deskripsi" rows="2" class="mt-1 w-full rounded-2xl border border-gray-200 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#78AE4E]"></textarea>
             </div>
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
-              <div>
-                <label class="text-sm font-semibold text-gray-700">Status Materi</label>
-                <input v-model="material.status" required type="text" class="mt-1 w-full rounded-2xl border border-gray-200 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#78AE4E]">
+              <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <div class="flex items-center gap-2 text-sm text-gray-600">
+                  <span class="text-xs px-3 py-1 rounded-full bg-[#eaf6df] text-[#78AE4E] font-semibold">Status: {{ material.status || 'Terunggah' }}</span>
+                  <span class="text-xs text-gray-500">Otomatis diperbarui setelah upload berhasil</span>
+                </div>
+                <div>
+                  <label class="text-sm font-semibold text-gray-700">Ganti File (opsional)</label>
+                  <input type="file" @change="onReplaceFile($event, material)" class="mt-1 w-full text-sm" />
+                </div>
               </div>
-              <div>
-                <label class="text-sm font-semibold text-gray-700">Ganti File (opsional)</label>
-                <input type="file" @change="onReplaceFile($event, material)" class="mt-1 w-full text-sm" />
-              </div>
-            </div>
           </div>
 
-          <div class="space-y-3">
-            <p class="text-sm font-semibold text-gray-700">Tambahkan Materi Baru</p>
-            <div class="rounded-2xl border-2 border-dashed border-gray-200 bg-gray-50 px-4 py-6 text-center cursor-pointer hover:border-[#78AE4E]" @click="newMaterialInput && newMaterialInput.click()">
-              <p class="text-sm text-gray-600">Klik untuk upload atau drag and drop</p>
-              <p class="text-xs text-gray-400">PNG, MP4, PPT, DOCX, PDF</p>
-              <input ref="newMaterialInput" type="file" class="hidden" multiple @change="handleMaterialFiles($event, materiForm)" />
-            </div>
-            <div v-if="materiForm.materi_uploads.length" class="space-y-2">
-              <div v-for="file in materiForm.materi_uploads" :key="file.name" class="flex items-center justify-between rounded-xl bg-white border border-gray-100 px-3 py-2 text-sm">
-                <span class="text-gray-700">{{ file.name }}</span>
-                <span class="text-xs text-gray-500">{{ (file.size / 1024 / 1024).toFixed(2) }} MB</span>
+            <div class="space-y-3">
+              <p class="text-sm font-semibold text-gray-700">Tambahkan Materi Baru</p>
+              <p class="text-xs text-gray-500">Status materi baru akan otomatis menjadi "Terunggah" ketika upload sukses.</p>
+              <div class="rounded-2xl border-2 border-dashed border-gray-200 bg-gray-50 px-4 py-6 text-center cursor-pointer hover:border-[#78AE4E]" @click="newMaterialInput && newMaterialInput.click()">
+                <p class="text-sm text-gray-600">Klik untuk upload atau drag and drop</p>
+                <p class="text-xs text-gray-400">PNG, MP4, PPT, DOCX, PDF</p>
+                <input ref="newMaterialInput" type="file" class="hidden" multiple @change="handleMaterialFiles($event, materiForm)" />
               </div>
-            </div>
-            <div>
-              <label class="text-sm font-semibold text-gray-700">Status Materi Baru</label>
-              <input v-model="materiForm.materi_status" type="text" class="mt-1 w-full rounded-2xl border border-gray-200 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#78AE4E]">
-            </div>
-            <div>
-              <label class="text-sm font-semibold text-gray-700">Deskripsi Materi Baru</label>
-              <textarea v-model="materiForm.materi_deskripsi" rows="2" class="mt-1 w-full rounded-2xl border border-gray-200 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#78AE4E]"></textarea>
-            </div>
+              <div v-if="materiForm.materi_uploads.length" class="space-y-2">
+                <div v-for="file in materiForm.materi_uploads" :key="file.name" class="flex items-center justify-between rounded-xl bg-white border border-gray-100 px-3 py-2 text-sm">
+                  <span class="text-gray-700">{{ file.name }}</span>
+                  <span class="text-xs text-gray-500">{{ (file.size / 1024 / 1024).toFixed(2) }} MB</span>
+                </div>
+              </div>
+              <div>
+                <label class="text-sm font-semibold text-gray-700">Deskripsi Materi Baru</label>
+                <textarea v-model="materiForm.materi_deskripsi" rows="2" class="mt-1 w-full rounded-2xl border border-gray-200 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#78AE4E]"></textarea>
+              </div>
             <div v-if="materialUploadProgress > 0" class="w-full h-2 bg-gray-100 rounded-full overflow-hidden">
               <div class="h-2 bg-[#78AE4E]" :style="{ width: `${materialUploadProgress}%` }"></div>
             </div>
@@ -747,6 +731,31 @@
             class="flex-1 py-2 rounded-xl border border-blue-200 text-blue-600 font-semibold">Tidak</button>
           <button @click="handleLogout"
             class="flex-1 py-2 rounded-xl bg-red-500 text-white font-semibold shadow-lg">Ya</button>
+        </div>
+      </div>
+    </div>
+
+    <div v-if="showMaterialPreview" class="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+      <div class="bg-white rounded-3xl shadow-2xl w-full max-w-4xl overflow-hidden">
+        <header class="flex items-center justify-between px-6 py-4 border-b border-gray-100">
+          <div>
+            <p class="text-sm text-[#78AE4E] font-semibold">Pratinjau Materi</p>
+            <p class="text-xl font-bold text-gray-900">{{ selectedMaterialFile?.judul }}</p>
+            <p class="text-sm text-gray-600">{{ selectedMaterialFile?.deskripsi || 'Deskripsi belum diisi' }}</p>
+          </div>
+          <button @click="closeMaterialPreview" class="text-gray-400 hover:text-gray-600 text-xl">×</button>
+        </header>
+        <div class="p-6 space-y-4">
+          <div class="flex items-center gap-3 text-sm text-gray-600">
+            <span class="px-3 py-1 rounded-full text-xs font-semibold" :class="badgeClass(selectedMaterialFile?.status || 'Terunggah')">
+              {{ selectedMaterialFile?.status || 'Terunggah' }}
+            </span>
+            <a v-if="selectedMaterialFile?.url" :href="selectedMaterialFile.url" target="_blank" class="text-[#78AE4E] font-semibold">Buka di tab baru</a>
+          </div>
+          <div v-if="selectedMaterialFile?.url" class="border border-gray-100 rounded-2xl overflow-hidden h-[480px]">
+            <iframe :src="selectedMaterialFile.url" class="w-full h-full" />
+          </div>
+          <p v-else class="text-sm text-gray-500">File tidak tersedia.</p>
         </div>
       </div>
     </div>
@@ -945,15 +954,18 @@ const notifications = ref([
 const jadwalMateri = ref([]);
 const isLoadingJadwal = ref(true);
 const successMessage = ref('');
+const errorMessage = ref('');
 const uploadProgress = ref(0);
 const materialUploadProgress = ref(0);
 
 const showAddModal = ref(false);
 const showEditScheduleModal = ref(false);
 const showEditMateriModal = ref(false);
+const showMaterialPreview = ref(false);
 const materialInput = ref(null);
 const newMaterialInput = ref(null);
 const selectedSchedule = ref(null);
+const selectedMaterialFile = ref(null);
 
 const addForm = reactive({
   topik: '',
@@ -963,8 +975,6 @@ const addForm = reactive({
   jam_selesai: '',
   lokasi: '',
   jumlah_peserta: '',
-  status: 'Akan Datang',
-  materi_status: 'Terunggah',
   deskripsi: '',
   materi_uploads: [],
 });
@@ -985,7 +995,6 @@ const materiForm = reactive({
   scheduleId: null,
   existing: [],
   materi_uploads: [],
-  materi_status: 'Terunggah',
   materi_deskripsi: '',
 });
 
@@ -1117,11 +1126,10 @@ const resetAddForm = () => {
   addForm.jam_selesai = '';
   addForm.lokasi = '';
   addForm.jumlah_peserta = '';
-  addForm.status = 'Akan Datang';
-  addForm.materi_status = 'Terunggah';
   addForm.deskripsi = '';
   addForm.materi_uploads = [];
   uploadProgress.value = 0;
+  errorMessage.value = '';
 };
 
 const openAddSchedule = () => {
@@ -1138,25 +1146,45 @@ const handleMaterialFiles = (event, targetForm) => {
   targetForm.materi_uploads = [...(targetForm.materi_uploads || []), ...files];
 };
 
+const setError = (message) => {
+  errorMessage.value = message;
+  setTimeout(() => {
+    errorMessage.value = '';
+  }, 4000);
+};
+
 const setSuccess = (message) => {
+  errorMessage.value = '';
   successMessage.value = message;
   setTimeout(() => {
     successMessage.value = '';
   }, 4000);
 };
 
+const isValidTimeRange = (start, end) => {
+  if (!start || !end) return true;
+  const [startHour, startMinute] = start.split(':').map(Number);
+  const [endHour, endMinute] = end.split(':').map(Number);
+  const startTotal = startHour * 60 + startMinute;
+  const endTotal = endHour * 60 + endMinute;
+  return endTotal > startTotal;
+};
+
 const submitAddSchedule = async () => {
+  if (!isValidTimeRange(addForm.jam_mulai, addForm.jam_selesai)) {
+    setError('Jam selesai harus lebih besar dari jam mulai.');
+    return;
+  }
+
   const formData = new FormData();
   formData.append('topik', addForm.topik);
   formData.append('tanggal', addForm.tanggal);
   formData.append('waktu_mulai', addForm.jam_mulai);
   formData.append('waktu_selesai', addForm.jam_selesai);
   formData.append('lokasi', addForm.lokasi);
-  formData.append('status', addForm.status);
   formData.append('topik_pembelajaran', addForm.topik_pembelajaran);
   formData.append('deskripsi', addForm.deskripsi);
   formData.append('jumlah_peserta', addForm.jumlah_peserta);
-  formData.append('materi_status', addForm.materi_status);
   addForm.materi_uploads.forEach((file, index) => {
     formData.append(`materi_uploads[${index}]`, file);
     formData.append(`materi_titles[${index}]`, file.name);
@@ -1174,6 +1202,7 @@ const submitAddSchedule = async () => {
     await loadJadwalMateri();
   } catch (error) {
     console.error('Gagal menambahkan jadwal:', error);
+    setError('Jam selesai harus setelah jam mulai atau periksa kembali kelengkapan form.');
   } finally {
     uploadProgress.value = 0;
   }
@@ -1320,6 +1349,11 @@ const closeEditSchedule = () => {
 };
 
 const submitEditSchedule = async () => {
+  if (!isValidTimeRange(editForm.jam_mulai, editForm.jam_selesai)) {
+    setError('Jam selesai harus lebih besar dari jam mulai.');
+    return;
+  }
+
   try {
     await axios.put(`/api/guru/jadwal/${editForm.id}`, {
       topik: editForm.topik,
@@ -1328,7 +1362,6 @@ const submitEditSchedule = async () => {
       waktu_selesai: editForm.jam_selesai,
       lokasi: editForm.lokasi,
       jumlah_peserta: editForm.jumlah_peserta,
-      status: editForm.status,
       deskripsi: editForm.deskripsi,
     });
     showEditScheduleModal.value = false;
@@ -1336,6 +1369,7 @@ const submitEditSchedule = async () => {
     await loadJadwalMateri();
   } catch (error) {
     console.error('Gagal memperbarui jadwal:', error);
+    setError('Tidak dapat memperbarui jadwal. Pastikan rentang waktunya benar.');
   }
 };
 
@@ -1343,7 +1377,6 @@ const openEditMateri = (schedule) => {
   materiForm.scheduleId = schedule.id;
   materiForm.existing = schedule.materi.map((item) => ({ ...item, newFile: null }));
   materiForm.materi_uploads = [];
-  materiForm.materi_status = 'Terunggah';
   materiForm.materi_deskripsi = '';
   materialUploadProgress.value = 0;
   showEditMateriModal.value = true;
@@ -1360,18 +1393,17 @@ const onReplaceFile = (event, material) => {
   }
 };
 
-const submitEditMateri = async () => {
-  try {
-    for (const material of materiForm.existing) {
-      const formData = new FormData();
-      formData.append('judul', material.judul);
-      formData.append('deskripsi', material.deskripsi || '');
-      formData.append('status', material.status);
-      if (material.newFile) {
-        formData.append('file', material.newFile);
-      }
-      await axios.post(`/api/guru/materi/${material.id}?_method=PUT`, formData, {
-        headers: { 'Content-Type': 'multipart/form-data' },
+  const submitEditMateri = async () => {
+    try {
+      for (const material of materiForm.existing) {
+        const formData = new FormData();
+        formData.append('judul', material.judul);
+        formData.append('deskripsi', material.deskripsi || '');
+        if (material.newFile) {
+          formData.append('file', material.newFile);
+        }
+        await axios.post(`/api/guru/materi/${material.id}?_method=PUT`, formData, {
+          headers: { 'Content-Type': 'multipart/form-data' },
       });
     }
 
@@ -1381,7 +1413,6 @@ const submitEditMateri = async () => {
         formData.append(`materi_uploads[${index}]`, file);
         formData.append(`materi_titles[${index}]`, file.name);
       });
-      formData.append('materi_status', materiForm.materi_status);
       formData.append('materi_deskripsi', materiForm.materi_deskripsi);
 
       await axios.post(`/api/guru/jadwal/${materiForm.scheduleId}/materi`, formData, {
@@ -1397,8 +1428,19 @@ const submitEditMateri = async () => {
     await loadJadwalMateri();
   } catch (error) {
     console.error('Gagal memperbarui materi:', error);
+    setError('Materi gagal diperbarui. Coba unggah ulang file.');
   } finally {
     materialUploadProgress.value = 0;
   }
+};
+
+const openMaterialPreview = (material) => {
+  selectedMaterialFile.value = material;
+  showMaterialPreview.value = true;
+};
+
+const closeMaterialPreview = () => {
+  showMaterialPreview.value = false;
+  selectedMaterialFile.value = null;
 };
 </script>

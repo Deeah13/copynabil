@@ -8,6 +8,7 @@ use App\Models\Materi;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Facades\Validator;
 
 class GuruJadwalMateriController extends Controller
 {
@@ -20,30 +21,45 @@ class GuruJadwalMateriController extends Controller
             $query->where('guru_id', $user->id);
         }
 
-        $data = $query->get()->map(fn ($item) => $this->mapSchedule($item));
+        $data = $query->get()->map(function ($item) {
+            $item = $this->refreshStatus($item);
+
+            return $this->mapSchedule($item);
+        });
 
         return response()->json(['data' => $data]);
     }
 
     public function store(Request $request)
     {
-        $validated = $request->validate([
+        $validator = Validator::make($request->all(), [
             'topik' => ['required', 'string', 'max:255'],
             'tanggal' => ['required', 'date'],
             'waktu_mulai' => ['required', 'date_format:H:i'],
             'waktu_selesai' => ['required', 'date_format:H:i'],
             'lokasi' => ['nullable', 'string', 'max:255'],
-            'status' => ['required', 'string', 'max:100'],
             'topik_pembelajaran' => ['nullable', 'string', 'max:255'],
             'deskripsi' => ['nullable', 'string'],
             'jumlah_peserta' => ['nullable', 'integer', 'min:0'],
-            'materi_status' => ['nullable', 'string', 'max:100'],
             'materi_deskripsi' => ['nullable', 'string'],
             'materi_titles' => ['array'],
             'materi_titles.*' => ['nullable', 'string', 'max:255'],
             'materi_uploads' => ['array'],
             'materi_uploads.*' => ['file', 'max:10240', 'mimes:pdf,doc,docx,ppt,pptx,png,jpg,jpeg,mp4'],
         ]);
+
+        $validator->after(function ($validator) use ($request) {
+            if ($request->filled(['waktu_mulai', 'waktu_selesai'])) {
+                $start = Carbon::createFromFormat('H:i', $request->input('waktu_mulai'));
+                $end = Carbon::createFromFormat('H:i', $request->input('waktu_selesai'));
+
+                if ($end->lessThanOrEqualTo($start)) {
+                    $validator->errors()->add('waktu_selesai', 'Jam selesai harus lebih besar dari jam mulai.');
+                }
+            }
+        });
+
+        $validated = $validator->validate();
 
         $start = Carbon::parse($validated['tanggal'] . ' ' . $validated['waktu_mulai']);
         $end = Carbon::parse($validated['tanggal'] . ' ' . $validated['waktu_selesai']);
@@ -55,7 +71,7 @@ class GuruJadwalMateriController extends Controller
             'waktu_selesai' => $end,
             'lokasi' => $validated['lokasi'] ?? null,
             'jumlah_peserta' => $validated['jumlah_peserta'] ?? null,
-            'status' => $validated['status'],
+            'status' => $this->resolveStatus($start, $end),
             'topik_pembelajaran' => $validated['topik_pembelajaran'] ?? null,
             'guru_id' => optional($request->user())->id ?? 1,
         ]);
@@ -70,17 +86,29 @@ class GuruJadwalMateriController extends Controller
 
     public function update(Request $request, JadwalSesi $jadwalSesi)
     {
-        $validated = $request->validate([
+        $validator = Validator::make($request->all(), [
             'topik' => ['sometimes', 'required', 'string', 'max:255'],
             'tanggal' => ['sometimes', 'required', 'date'],
             'waktu_mulai' => ['sometimes', 'required', 'date_format:H:i'],
             'waktu_selesai' => ['sometimes', 'required', 'date_format:H:i'],
             'lokasi' => ['nullable', 'string', 'max:255'],
-            'status' => ['sometimes', 'required', 'string', 'max:100'],
             'topik_pembelajaran' => ['nullable', 'string', 'max:255'],
             'deskripsi' => ['nullable', 'string'],
             'jumlah_peserta' => ['nullable', 'integer', 'min:0'],
         ]);
+
+        $validator->after(function ($validator) use ($request) {
+            if ($request->filled(['waktu_mulai', 'waktu_selesai'])) {
+                $start = Carbon::createFromFormat('H:i', $request->input('waktu_mulai'));
+                $end = Carbon::createFromFormat('H:i', $request->input('waktu_selesai'));
+
+                if ($end->lessThanOrEqualTo($start)) {
+                    $validator->errors()->add('waktu_selesai', 'Jam selesai harus lebih besar dari jam mulai.');
+                }
+            }
+        });
+
+        $validated = $validator->validate();
 
         if (isset($validated['tanggal']) && isset($validated['waktu_mulai'])) {
             $jadwalSesi->waktu_mulai = Carbon::parse($validated['tanggal'] . ' ' . $validated['waktu_mulai']);
@@ -90,6 +118,7 @@ class GuruJadwalMateriController extends Controller
         }
 
         $jadwalSesi->fill(collect($validated)->except(['tanggal', 'waktu_mulai', 'waktu_selesai'])->toArray());
+        $jadwalSesi->status = $this->resolveStatus($jadwalSesi->waktu_mulai, $jadwalSesi->waktu_selesai);
         $jadwalSesi->save();
 
         return response()->json([
@@ -101,7 +130,6 @@ class GuruJadwalMateriController extends Controller
     public function storeMaterial(Request $request, JadwalSesi $jadwalSesi)
     {
         $validated = $request->validate([
-            'materi_status' => ['nullable', 'string', 'max:100'],
             'materi_deskripsi' => ['nullable', 'string'],
             'materi_titles' => ['array'],
             'materi_titles.*' => ['nullable', 'string', 'max:255'],
@@ -122,7 +150,6 @@ class GuruJadwalMateriController extends Controller
         $validated = $request->validate([
             'judul' => ['required', 'string', 'max:255'],
             'deskripsi' => ['nullable', 'string'],
-            'status' => ['required', 'string', 'max:100'],
             'file' => ['nullable', 'file', 'max:10240', 'mimes:pdf,doc,docx,ppt,pptx,png,jpg,jpeg,mp4'],
         ]);
 
@@ -136,7 +163,7 @@ class GuruJadwalMateriController extends Controller
 
         $materi->judul = $validated['judul'];
         $materi->deskripsi = $validated['deskripsi'] ?? null;
-        $materi->status = $validated['status'];
+        $materi->status = 'Terunggah';
         $materi->save();
 
         return response()->json([
@@ -145,11 +172,38 @@ class GuruJadwalMateriController extends Controller
         ]);
     }
 
+    protected function resolveStatus(Carbon $start, Carbon $end): string
+    {
+        $now = Carbon::now();
+
+        if ($now->lt($start)) {
+            return 'Akan Datang';
+        }
+
+        if ($now->between($start, $end)) {
+            return 'Berlangsung';
+        }
+
+        return 'Selesai';
+    }
+
+    protected function refreshStatus(JadwalSesi $jadwal): JadwalSesi
+    {
+        $status = $this->resolveStatus($jadwal->waktu_mulai, $jadwal->waktu_selesai);
+
+        if ($jadwal->status !== $status) {
+            $jadwal->status = $status;
+            $jadwal->save();
+        }
+
+        return $jadwal;
+    }
+
     protected function storeUploads(Request $request, JadwalSesi $jadwal, array $validated): void
     {
         $files = $request->file('materi_uploads', []);
         $titles = $validated['materi_titles'] ?? [];
-        $status = $validated['materi_status'] ?? 'Terunggah';
+        $status = 'Terunggah';
         $deskripsi = $validated['materi_deskripsi'] ?? null;
 
         foreach ($files as $index => $file) {
@@ -167,6 +221,8 @@ class GuruJadwalMateriController extends Controller
 
     protected function mapSchedule(JadwalSesi $jadwal): array
     {
+        $jadwal = $this->refreshStatus($jadwal);
+
         return [
             'id' => $jadwal->id,
             'topik' => $jadwal->topik,
