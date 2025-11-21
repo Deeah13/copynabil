@@ -218,7 +218,7 @@ class GuruJadwalMateriController extends Controller
         }
     }
 
-    protected function mapSchedule($jadwal): array
+    protected function mapSchedule(JadwalSesi $jadwal): array
     {
         // Guard against unexpected payloads reaching this mapper so we never raise a
         // type error back to the client. When an id or raw array slips through, we
