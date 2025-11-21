@@ -257,7 +257,11 @@
             </div>
 
             <div v-else class="mt-6 space-y-6">
-              <article v-for="schedule in jadwalMateri" :key="schedule.id" class="rounded-3xl border border-gray-100 bg-[#fdfcf9] p-5 shadow-sm">
+              <article
+                v-for="schedule in paginatedSchedules"
+                :key="schedule.id"
+                class="rounded-3xl border border-gray-100 bg-[#fdfcf9] p-5 shadow-sm"
+              >
                 <div class="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-4">
                   <div class="flex-1 space-y-2">
                     <div class="flex items-center gap-3">
@@ -321,6 +325,31 @@
                   </div>
                 </div>
               </article>
+
+              <div v-if="totalSchedulePages > 1" class="flex items-center justify-between pt-2">
+                <p class="text-sm text-gray-500">
+                  Menampilkan {{ scheduleRangeLabel }} dari {{ sortedSchedules.length }} jadwal
+                </p>
+                <div class="flex items-center gap-2">
+                  <button
+                    type="button"
+                    class="px-3 py-1.5 rounded-full border border-gray-200 text-sm font-semibold text-gray-700 disabled:opacity-50"
+                    :disabled="schedulePagination.page === 1"
+                    @click="prevSchedulePage"
+                  >
+                    ‹
+                  </button>
+                  <span class="text-sm text-gray-600">Halaman {{ schedulePagination.page }} / {{ totalSchedulePages }}</span>
+                  <button
+                    type="button"
+                    class="px-3 py-1.5 rounded-full border border-gray-200 text-sm font-semibold text-gray-700 disabled:opacity-50"
+                    :disabled="schedulePagination.page === totalSchedulePages"
+                    @click="nextSchedulePage"
+                  >
+                    ›
+                  </button>
+                </div>
+              </div>
             </div>
           </article>
         </section>
@@ -954,6 +983,7 @@ const notifications = ref([
 ]);
 
 const jadwalMateri = ref([]);
+const schedulePagination = reactive({ page: 1, perPage: 8 });
 const isLoadingJadwal = ref(true);
 const successMessage = ref('');
 const errorMessage = ref('');
@@ -1033,6 +1063,18 @@ const handleQuickAction = (actionId) => {
   }
 };
 
+const nextSchedulePage = () => {
+  if (schedulePagination.page < totalSchedulePages.value) {
+    schedulePagination.page += 1;
+  }
+};
+
+const prevSchedulePage = () => {
+  if (schedulePagination.page > 1) {
+    schedulePagination.page -= 1;
+  }
+};
+
 const openScheduleDetail = (schedule) => {
   selectedSchedule.value = schedule;
 };
@@ -1054,6 +1096,16 @@ watch(
   () => [attendanceFilters.query, attendanceFilters.status],
   () => {
     attendancePagination.page = 1;
+  }
+);
+
+watch(
+  () => sortedSchedules.value.length,
+  () => {
+    const maxPage = totalSchedulePages.value;
+    if (schedulePagination.page > maxPage) {
+      schedulePagination.page = maxPage;
+    }
   }
 );
 
@@ -1115,6 +1167,7 @@ const loadJadwalMateri = async () => {
   try {
     const { data } = await axios.get('/api/guru/jadwal-materi');
     jadwalMateri.value = data.data || [];
+    schedulePagination.page = 1;
   } catch (error) {
     console.error('Gagal memuat jadwal guru:', error);
   } finally {
@@ -1226,15 +1279,22 @@ const submitAddSchedule = async () => {
   });
 
   try {
-    await axios.post('/api/guru/jadwal', formData, {
+    const response = await axios.post('/api/guru/jadwal', formData, {
       headers: { 'Content-Type': 'multipart/form-data' },
       onUploadProgress: (progressEvent) => {
         uploadProgress.value = Math.round((progressEvent.loaded * 100) / (progressEvent.total || 1));
       },
     });
     showAddModal.value = false;
+    const created = response.data?.data;
+    if (created) {
+      jadwalMateri.value = [created, ...jadwalMateri.value];
+      schedulePagination.page = 1;
+    }
     setSuccess('Jadwal dan materi berhasil ditambahkan.');
-    await loadJadwalMateri();
+    if (!created) {
+      await loadJadwalMateri();
+    }
   } catch (error) {
     console.error('Gagal menambahkan jadwal:', error);
     const serverErrors = error.response?.data?.errors;
@@ -1284,6 +1344,28 @@ const isWithinCurrentWeek = (value) => {
   end.setHours(23, 59, 59, 999);
   return date >= start && date <= end;
 };
+
+const sortedSchedules = computed(() => {
+  return [...jadwalMateri.value].sort((a, b) => new Date(b.waktu_mulai) - new Date(a.waktu_mulai));
+});
+
+const paginatedSchedules = computed(() => {
+  const start = (schedulePagination.page - 1) * schedulePagination.perPage;
+  const end = start + schedulePagination.perPage;
+  return sortedSchedules.value.slice(start, end);
+});
+
+const totalSchedulePages = computed(() =>
+  Math.max(1, Math.ceil(sortedSchedules.value.length / schedulePagination.perPage))
+);
+
+const scheduleRangeLabel = computed(() => {
+  const total = sortedSchedules.value.length;
+  if (!total) return '0-0';
+  const start = (schedulePagination.page - 1) * schedulePagination.perPage + 1;
+  const end = Math.min(schedulePagination.page * schedulePagination.perPage, total);
+  return `${start}-${end}`;
+});
 
 const teachingSchedules = computed(() => {
   return jadwalMateri.value
@@ -1398,7 +1480,7 @@ const submitEditSchedule = async () => {
   }
 
   try {
-    await axios.put(`/api/guru/jadwal/${editForm.id}`, {
+    const response = await axios.put(`/api/guru/jadwal/${editForm.id}`, {
       topik: editForm.topik,
       tanggal: editForm.tanggal,
       waktu_mulai: editForm.jam_mulai,
@@ -1408,8 +1490,14 @@ const submitEditSchedule = async () => {
       deskripsi: editForm.deskripsi,
     });
     showEditScheduleModal.value = false;
+    const updated = response.data?.data;
+    if (updated) {
+      jadwalMateri.value = jadwalMateri.value.map((item) => (item.id === updated.id ? updated : item));
+    }
     setSuccess('Jadwal berhasil diperbarui.');
-    await loadJadwalMateri();
+    if (!updated) {
+      await loadJadwalMateri();
+    }
   } catch (error) {
     console.error('Gagal memperbarui jadwal:', error);
     const serverErrors = error.response?.data?.errors;

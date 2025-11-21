@@ -16,7 +16,7 @@ class GuruJadwalMateriController extends Controller
     {
         $user = $request->user();
 
-        $query = JadwalSesi::with('materi')->orderBy('waktu_mulai');
+        $query = JadwalSesi::with('materi')->orderByDesc('waktu_mulai');
         if ($user) {
             $query->where('guru_id', $user->id);
         }
