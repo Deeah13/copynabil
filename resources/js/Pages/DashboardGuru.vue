@@ -1202,6 +1202,7 @@ const loadJadwalMateri = async () => {
   isLoadingJadwal.value = true;
   try {
     const { data } = await axios.get('/api/guru/jadwal-materi');
+<<<<<<< HEAD
     jadwalMateri.value = data.data || [];
 <<<<<<< HEAD
 <<<<<<< HEAD
@@ -1211,8 +1212,17 @@ const loadJadwalMateri = async () => {
 >>>>>>> 38f93a635923113b1c42d861853d4166d9c57eb8
 =======
 >>>>>>> parent of 9f31d7d (fix schedule)
+=======
+    const payload = Array.isArray(data?.data) ? data.data : [];
+    jadwalMateri.value = payload;
+    schedulePagination.page = 1;
+    if (!Array.isArray(data?.data)) {
+      setError('Format data jadwal tidak sesuai, mohon coba lagi.');
+    }
+>>>>>>> 52c2a1d8eb8bf7444f05d7fe40c4da91dd270235
   } catch (error) {
     console.error('Gagal memuat jadwal guru:', error);
+    setError('Gagal memuat jadwal, periksa koneksi atau login Anda.');
   } finally {
     isLoadingJadwal.value = false;
   }
@@ -1582,17 +1592,17 @@ const onReplaceFile = (event, material) => {
   }
 };
 
-  const submitEditMateri = async () => {
-    try {
-      for (const material of materiForm.existing) {
-        const formData = new FormData();
-        formData.append('judul', material.judul);
-        formData.append('deskripsi', material.deskripsi || '');
-        if (material.newFile) {
-          formData.append('file', material.newFile);
-        }
-        await axios.post(`/api/guru/materi/${material.id}?_method=PUT`, formData, {
-          headers: { 'Content-Type': 'multipart/form-data' },
+const submitEditMateri = async () => {
+  try {
+    for (const material of materiForm.existing) {
+      const formData = new FormData();
+      formData.append('judul', material.judul);
+      formData.append('deskripsi', material.deskripsi || '');
+      if (material.newFile) {
+        formData.append('file', material.newFile);
+      }
+      await axios.post(`/api/guru/materi/${material.id}?_method=PUT`, formData, {
+        headers: { 'Content-Type': 'multipart/form-data' },
       });
     }
 
