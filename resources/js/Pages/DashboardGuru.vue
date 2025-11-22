@@ -550,7 +550,7 @@
             </div>
             <div>
               <label class="text-sm font-semibold text-gray-700">Hari, Tanggal</label>
-              <input v-model="addForm.tanggal" required type="date"
+              <input v-model="addForm.tanggal" required type="date" :min="minScheduleDate"
                 class="mt-1 w-full rounded-2xl border border-gray-200 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#78AE4E]">
             </div>
             <div class="grid grid-cols-2 gap-3">
@@ -634,7 +634,7 @@
             </div>
             <div>
               <label class="text-sm font-semibold text-gray-700">Hari, Tanggal</label>
-              <input v-model="editForm.tanggal" required type="date" class="mt-1 w-full rounded-2xl border border-gray-200 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#78AE4E]">
+              <input v-model="editForm.tanggal" required type="date" :min="minScheduleDate" class="mt-1 w-full rounded-2xl border border-gray-200 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#78AE4E]">
             </div>
             <div class="grid grid-cols-2 gap-3">
               <div>
@@ -812,6 +812,19 @@ const menus = reactive({
 const activeSection = ref('beranda');
 const headerSubtitle = ref('Menu Utama · Beranda');
 
+const ensureAuthHeader = () => {
+  const token = localStorage.getItem('token');
+  if (token) {
+    axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
+  }
+};
+
+const redirectToLogin = () => {
+  localStorage.removeItem('token');
+  delete axios.defaults.headers.common['Authorization'];
+  router.push('/login');
+};
+
 const quickActions = [
   {
     id: 'session',
@@ -937,6 +950,7 @@ const formatSessionLabel = (payload) => {
 const loadAttendance = async () => {
   isLoadingAttendance.value = true;
   try {
+    ensureAuthHeader();
     const response = await axios.get('/api/guru/kehadiran');
     const records = response.data?.data || [];
 
@@ -955,7 +969,9 @@ const loadAttendance = async () => {
 
     syncAttendanceSummary(response.data?.summary);
   } catch (error) {
-    setError(error.response?.data?.message || 'Gagal memuat data kehadiran.');
+    if (handleAuthError(error, 'Gagal memuat data kehadiran.')) {
+      return;
+    }
   } finally {
     isLoadingAttendance.value = false;
   }
@@ -972,6 +988,7 @@ const saveAttendance = async (student) => {
   if (!student?.siswa_id || !student?.sesi_id) return;
   student.saving = true;
   try {
+    ensureAuthHeader();
     await axios.post('/api/guru/kehadiran', {
       siswa_id: student.siswa_id,
       sesi_id: student.sesi_id,
@@ -980,6 +997,10 @@ const saveAttendance = async (student) => {
     setSuccess('Status kehadiran berhasil disimpan.');
     await loadAttendance();
   } catch (error) {
+    if (handleAuthError(error)) {
+      return;
+    }
+
     setError(error.response?.data?.message || 'Gagal menyimpan status kehadiran.');
   } finally {
     student.saving = false;
@@ -1009,10 +1030,15 @@ const saveNote = () => {
 const removeAttendance = async (attendanceId) => {
   if (!attendanceId) return;
   try {
+    ensureAuthHeader();
     await axios.delete(`/api/guru/kehadiran/${attendanceId}`);
     setSuccess('Data kehadiran berhasil dihapus.');
     await loadAttendance();
   } catch (error) {
+    if (handleAuthError(error)) {
+      return;
+    }
+
     setError(error.response?.data?.message || 'Gagal menghapus data kehadiran.');
   }
 };
@@ -1039,6 +1065,11 @@ const materialInput = ref(null);
 const newMaterialInput = ref(null);
 const selectedSchedule = ref(null);
 const selectedMaterialFile = ref(null);
+const minScheduleDate = computed(() => {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  return today.toISOString().slice(0, 10);
+});
 
 const addForm = reactive({
   topik: '',
@@ -1151,6 +1182,7 @@ const handleClickOutside = (event) => {
 
 onMounted(() => {
   document.addEventListener('click', handleClickOutside);
+  ensureAuthHeader();
   loadJadwalMateri();
   loadAttendance();
 });
@@ -1174,19 +1206,21 @@ const handleLogout = async () => {
   } catch (error) {
     console.error('Logout error:', error);
   } finally {
-    localStorage.removeItem('token');
-    delete axios.defaults.headers.common['Authorization'];
-    router.push('/login');
+    redirectToLogin();
   }
 };
 
 const loadJadwalMateri = async () => {
   isLoadingJadwal.value = true;
   try {
+    ensureAuthHeader();
     const { data } = await axios.get('/api/guru/jadwal-materi');
     jadwalMateri.value = data.data || [];
   } catch (error) {
     console.error('Gagal memuat jadwal guru:', error);
+    if (handleAuthError(error, 'Sesi Anda telah berakhir. Silakan login kembali.')) {
+      return;
+    }
   } finally {
     isLoadingJadwal.value = false;
   }
@@ -1195,7 +1229,7 @@ const loadJadwalMateri = async () => {
 const resetAddForm = () => {
   addForm.topik = '';
   addForm.topik_pembelajaran = '';
-  addForm.tanggal = '';
+  addForm.tanggal = minScheduleDate.value;
   addForm.jam_mulai = '';
   addForm.jam_selesai = '';
   addForm.lokasi = '';
@@ -1238,6 +1272,20 @@ const setSuccess = (message) => {
   }, 4000);
 };
 
+const handleAuthError = (error, fallbackMessage) => {
+  if (error?.response?.status === 401) {
+    setError('Sesi Anda telah berakhir. Silakan login kembali.');
+    redirectToLogin();
+    return true;
+  }
+
+  if (fallbackMessage) {
+    setError(fallbackMessage);
+  }
+
+  return false;
+};
+
 const isValidTimeRange = (start, end) => {
   if (!start || !end) return true;
   const [startHour, startMinute] = start.split(':').map(Number);
@@ -1245,6 +1293,15 @@ const isValidTimeRange = (start, end) => {
   const startTotal = startHour * 60 + startMinute;
   const endTotal = endHour * 60 + endMinute;
   return endTotal > startTotal;
+};
+
+const isValidDate = (value) => {
+  if (!value) return false;
+  const selected = new Date(value);
+  selected.setHours(0, 0, 0, 0);
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  return selected >= today;
 };
 
 watch(
@@ -1276,11 +1333,17 @@ watch(
 );
 
 const submitAddSchedule = async () => {
+  if (!isValidDate(addForm.tanggal)) {
+    setError('Tanggal tidak boleh kurang dari hari ini.');
+    return;
+  }
+
   if (!isValidTimeRange(addForm.jam_mulai, addForm.jam_selesai)) {
     addTimeError.value = 'Jam selesai harus lebih besar dari jam mulai.';
     return;
   }
 
+  ensureAuthHeader();
   const formData = new FormData();
   formData.append('topik', addForm.topik);
   formData.append('tanggal', addForm.tanggal);
@@ -1318,6 +1381,10 @@ const submitAddSchedule = async () => {
     const serverErrors = error.response?.data?.errors;
     if (serverErrors?.waktu_selesai?.length) {
       addTimeError.value = serverErrors.waktu_selesai[0];
+      return;
+    }
+
+    if (handleAuthError(error)) {
       return;
     }
 
@@ -1470,12 +1537,18 @@ const closeEditSchedule = () => {
 };
 
 const submitEditSchedule = async () => {
+  if (!isValidDate(editForm.tanggal)) {
+    setError('Tanggal tidak boleh kurang dari hari ini.');
+    return;
+  }
+
   if (!isValidTimeRange(editForm.jam_mulai, editForm.jam_selesai)) {
     editTimeError.value = 'Jam selesai harus lebih besar dari jam mulai.';
     return;
   }
 
   try {
+    ensureAuthHeader();
     await axios.put(`/api/guru/jadwal/${editForm.id}`, {
       topik: editForm.topik,
       tanggal: editForm.tanggal,
@@ -1496,6 +1569,10 @@ const submitEditSchedule = async () => {
     const serverErrors = error.response?.data?.errors;
     if (serverErrors?.waktu_selesai?.length) {
       editTimeError.value = serverErrors.waktu_selesai[0];
+      return;
+    }
+
+    if (handleAuthError(error)) {
       return;
     }
 
@@ -1523,17 +1600,18 @@ const onReplaceFile = (event, material) => {
   }
 };
 
-  const submitEditMateri = async () => {
-    try {
-      for (const material of materiForm.existing) {
-        const formData = new FormData();
-        formData.append('judul', material.judul);
-        formData.append('deskripsi', material.deskripsi || '');
-        if (material.newFile) {
-          formData.append('file', material.newFile);
-        }
-        await axios.post(`/api/guru/materi/${material.id}?_method=PUT`, formData, {
-          headers: { 'Content-Type': 'multipart/form-data' },
+const submitEditMateri = async () => {
+  try {
+    ensureAuthHeader();
+    for (const material of materiForm.existing) {
+      const formData = new FormData();
+      formData.append('judul', material.judul);
+      formData.append('deskripsi', material.deskripsi || '');
+      if (material.newFile) {
+        formData.append('file', material.newFile);
+      }
+      await axios.post(`/api/guru/materi/${material.id}?_method=PUT`, formData, {
+        headers: { 'Content-Type': 'multipart/form-data' },
       });
     }
 
@@ -1558,6 +1636,10 @@ const onReplaceFile = (event, material) => {
     await loadJadwalMateri();
   } catch (error) {
     console.error('Gagal memperbarui materi:', error);
+    if (handleAuthError(error)) {
+      return;
+    }
+
     setError('Materi gagal diperbarui. Coba unggah ulang file.');
   } finally {
     materialUploadProgress.value = 0;
