@@ -231,10 +231,11 @@ class GuruJadwalMateriController extends Controller
             abort(422, 'Jadwal tidak valid atau tidak ditemukan.');
         }
 
-        $jadwal->loadMissing('materi');
-        $jadwal = $this->refreshStatus($jadwal);
+        if (!$jadwal->relationLoaded('materi')) {
+            $jadwal->load('materi');
+        }
 
-        $materiCollection = $jadwal->materi ?? collect();
+        $jadwal = $this->refreshStatus($jadwal);
 
         return [
             'id' => $jadwal->id,
@@ -246,7 +247,7 @@ class GuruJadwalMateriController extends Controller
             'jumlah_peserta' => $jadwal->jumlah_peserta,
             'status' => $jadwal->status,
             'topik_pembelajaran' => $jadwal->topik_pembelajaran,
-            'materi' => $materiCollection->map(function ($materi) {
+            'materi' => $jadwal->materi->map(function ($materi) {
                 return [
                     'id' => $materi->id,
                     'judul' => $materi->judul,
