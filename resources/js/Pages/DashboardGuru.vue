@@ -1286,10 +1286,18 @@ const submitAddSchedule = async () => {
   formData.append('tanggal', addForm.tanggal);
   formData.append('waktu_mulai', addForm.jam_mulai);
   formData.append('waktu_selesai', addForm.jam_selesai);
-  formData.append('lokasi', addForm.lokasi);
-  formData.append('topik_pembelajaran', addForm.topik_pembelajaran);
-  formData.append('deskripsi', addForm.deskripsi);
-  formData.append('jumlah_peserta', addForm.jumlah_peserta);
+  if (addForm.lokasi) {
+    formData.append('lokasi', addForm.lokasi);
+  }
+  if (addForm.topik_pembelajaran) {
+    formData.append('topik_pembelajaran', addForm.topik_pembelajaran);
+  }
+  if (addForm.deskripsi) {
+    formData.append('deskripsi', addForm.deskripsi);
+  }
+  if (addForm.jumlah_peserta !== null && addForm.jumlah_peserta !== undefined && addForm.jumlah_peserta !== '') {
+    formData.append('jumlah_peserta', addForm.jumlah_peserta);
+  }
   addForm.materi_uploads.forEach((file, index) => {
     formData.append(`materi_uploads[${index}]`, file);
     formData.append(`materi_titles[${index}]`, file.name);
@@ -1473,9 +1481,12 @@ const submitEditSchedule = async () => {
       tanggal: editForm.tanggal,
       waktu_mulai: editForm.jam_mulai,
       waktu_selesai: editForm.jam_selesai,
-      lokasi: editForm.lokasi,
-      jumlah_peserta: editForm.jumlah_peserta,
-      deskripsi: editForm.deskripsi,
+      lokasi: editForm.lokasi || undefined,
+      jumlah_peserta:
+        editForm.jumlah_peserta !== null && editForm.jumlah_peserta !== undefined && editForm.jumlah_peserta !== ''
+          ? editForm.jumlah_peserta
+          : undefined,
+      deskripsi: editForm.deskripsi || undefined,
     });
     showEditScheduleModal.value = false;
     setSuccess('Jadwal berhasil diperbarui.');
