@@ -257,13 +257,26 @@
             </div>
 
             <div v-else class="mt-6 space-y-6">
-              <article v-for="schedule in jadwalMateri" :key="schedule.id" class="rounded-3xl border border-gray-100 bg-[#fdfcf9] p-5 shadow-sm">
+              <article
+                v-for="schedule in jadwalMateri"
+                :key="schedule.id"
+                :class="[
+                  'rounded-3xl border p-5 shadow-sm transition',
+                  schedule.is_deleted ? 'border-red-100 bg-red-50/70 ring-1 ring-red-100' : 'border-gray-100 bg-[#fdfcf9]',
+                ]"
+              >
                 <div class="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-4">
                   <div class="flex-1 space-y-2">
                     <div class="flex items-center gap-3">
                       <p class="text-lg font-semibold text-gray-900">{{ formatFullDate(schedule.waktu_mulai) }}</p>
                       <span class="px-3 py-1 rounded-full text-xs font-semibold" :class="badgeClass(schedule.status)">
                         {{ schedule.status }}
+                      </span>
+                      <span
+                        v-if="schedule.is_deleted"
+                        class="px-3 py-1 rounded-full text-xs font-semibold bg-red-100 text-red-700 border border-red-200"
+                      >
+                        Terhapus
                       </span>
                     </div>
                     <p class="text-xl font-bold text-gray-900">{{ schedule.topik }}</p>
@@ -286,12 +299,38 @@
                     </div>
                   </div>
 
-                  <div class="flex flex-wrap gap-3 self-start">
-                    <button @click="openEditSchedule(schedule)" class="px-4 py-2 rounded-full border border-gray-200 text-sm font-semibold text-gray-700 bg-white">
+                  <div class="flex flex-wrap gap-3 self-start items-center">
+                    <button
+                      @click="openEditSchedule(schedule)"
+                      :disabled="schedule.is_deleted"
+                      class="px-4 py-2 rounded-full border border-gray-200 text-sm font-semibold text-gray-700 bg-white disabled:opacity-60 disabled:cursor-not-allowed"
+                    >
                       Edit Jadwal
                     </button>
-                    <button @click="openEditMateri(schedule)" class="px-4 py-2 rounded-full border border-[#78AE4E]/60 text-sm font-semibold text-[#78AE4E] bg-[#f1f8e9]">
+                    <button
+                      @click="openEditMateri(schedule)"
+                      :disabled="schedule.is_deleted"
+                      class="px-4 py-2 rounded-full border border-[#78AE4E]/60 text-sm font-semibold text-[#78AE4E] bg-[#f1f8e9] disabled:opacity-60 disabled:cursor-not-allowed"
+                    >
                       Edit Materi
+                    </button>
+                    <button
+                      v-if="!schedule.is_deleted"
+                      @click="deleteSchedule(schedule)"
+                      :disabled="scheduleActionState.deleting[schedule.id]"
+                      class="px-4 py-2 rounded-full border border-red-200 text-sm font-semibold text-red-600 bg-red-50 hover:bg-red-100 disabled:opacity-60 disabled:cursor-not-allowed flex items-center gap-2"
+                    >
+                      <TrashIcon class="w-5 h-5" />
+                      <span>{{ scheduleActionState.deleting[schedule.id] ? 'Menghapus...' : 'Hapus' }}</span>
+                    </button>
+                    <button
+                      v-else
+                      @click="restoreSchedule(schedule)"
+                      :disabled="scheduleActionState.restoring[schedule.id]"
+                      class="px-4 py-2 rounded-full border border-blue-200 text-sm font-semibold text-blue-700 bg-blue-50 hover:bg-blue-100 disabled:opacity-60 disabled:cursor-not-allowed flex items-center gap-2"
+                    >
+                      <ArrowPathIcon class="w-5 h-5" />
+                      <span>{{ scheduleActionState.restoring[schedule.id] ? 'Memulihkan...' : 'Pulihkan' }}</span>
                     </button>
                   </div>
                 </div>
@@ -798,7 +837,8 @@ import {
   UserGroupIcon,
   UserIcon,
   PencilSquareIcon,
-  TrashIcon
+  TrashIcon,
+  ArrowPathIcon
 } from '@heroicons/vue/24/outline';
 import { ArrowDownCircleIcon, ArrowUpCircleIcon } from '@heroicons/vue/24/solid';
 
@@ -1056,6 +1096,7 @@ const uploadProgress = ref(0);
 const materialUploadProgress = ref(0);
 const addTimeError = ref('');
 const editTimeError = ref('');
+const scheduleActionState = reactive({ deleting: {}, restoring: {} });
 
 const showAddModal = ref(false);
 const showEditScheduleModal = ref(false);
@@ -1236,6 +1277,16 @@ const loadJadwalMateri = async () => {
   }
 };
 
+const upsertSchedule = (payload) => {
+  if (!payload) return;
+  const index = jadwalMateri.value.findIndex((item) => item.id === payload.id);
+  if (index !== -1) {
+    jadwalMateri.value.splice(index, 1, payload);
+  } else {
+    jadwalMateri.value.unshift(payload);
+  }
+};
+
 const resetAddForm = () => {
   addForm.topik = '';
   addForm.topik_pembelajaran = '';
@@ -1402,6 +1453,50 @@ const submitAddSchedule = async () => {
     setError(error.response?.data?.message || 'Terjadi kesalahan saat menambahkan jadwal.');
   } finally {
     uploadProgress.value = 0;
+  }
+};
+
+const deleteSchedule = async (schedule) => {
+  const id = schedule?.id;
+  if (!id || scheduleActionState.deleting[id]) return;
+
+  try {
+    scheduleActionState.deleting[id] = true;
+    ensureAuthHeader();
+    const { data } = await axios.delete(`/api/guru/jadwal/${id}`);
+    upsertSchedule(data.data);
+    setSuccess('Jadwal berhasil dihapus.');
+  } catch (error) {
+    console.error('Gagal menghapus jadwal:', error);
+    if (handleAuthError(error)) {
+      return;
+    }
+
+    setError(error.response?.data?.message || 'Tidak dapat menghapus jadwal.');
+  } finally {
+    scheduleActionState.deleting[id] = false;
+  }
+};
+
+const restoreSchedule = async (schedule) => {
+  const id = schedule?.id;
+  if (!id || scheduleActionState.restoring[id]) return;
+
+  try {
+    scheduleActionState.restoring[id] = true;
+    ensureAuthHeader();
+    const { data } = await axios.post(`/api/guru/jadwal/${id}/restore`);
+    upsertSchedule(data.data);
+    setSuccess('Jadwal berhasil dipulihkan.');
+  } catch (error) {
+    console.error('Gagal memulihkan jadwal:', error);
+    if (handleAuthError(error)) {
+      return;
+    }
+
+    setError(error.response?.data?.message || 'Tidak dapat memulihkan jadwal.');
+  } finally {
+    scheduleActionState.restoring[id] = false;
   }
 };
 

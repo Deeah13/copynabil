@@ -38,6 +38,8 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/guru/jadwal-materi', [GuruJadwalMateriController::class, 'index']);
     Route::post('/guru/jadwal', [GuruJadwalMateriController::class, 'store']);
     Route::put('/guru/jadwal/{jadwalSesi}', [GuruJadwalMateriController::class, 'update']);
+    Route::delete('/guru/jadwal/{jadwalSesi}', [GuruJadwalMateriController::class, 'destroy']);
+    Route::post('/guru/jadwal/{jadwalSesi}/restore', [GuruJadwalMateriController::class, 'restore']);
     Route::post('/guru/jadwal/{jadwalSesi}/materi', [GuruJadwalMateriController::class, 'storeMaterial']);
     Route::put('/guru/materi/{materi}', [GuruJadwalMateriController::class, 'updateMaterial']);
 
