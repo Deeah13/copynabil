@@ -1466,6 +1466,7 @@ const deleteSchedule = async (schedule) => {
     const { data } = await axios.delete(`/api/guru/jadwal/${id}`);
     upsertSchedule(data.data);
     setSuccess('Jadwal berhasil dihapus.');
+    await loadJadwalMateri();
   } catch (error) {
     console.error('Gagal menghapus jadwal:', error);
     if (handleAuthError(error)) {
@@ -1488,6 +1489,7 @@ const restoreSchedule = async (schedule) => {
     const { data } = await axios.post(`/api/guru/jadwal/${id}/restore`);
     upsertSchedule(data.data);
     setSuccess('Jadwal berhasil dipulihkan.');
+    await loadJadwalMateri();
   } catch (error) {
     console.error('Gagal memulihkan jadwal:', error);
     if (handleAuthError(error)) {
@@ -1537,7 +1539,9 @@ const isWithinCurrentWeek = (value) => {
 };
 
 const teachingSchedules = computed(() => {
-  return jadwalMateri.value
+  const activeSchedules = jadwalMateri.value.filter((item) => !item.is_deleted);
+
+  return activeSchedules
     .filter((item) => isWithinCurrentWeek(item.waktu_mulai))
     .map((item) => {
       const dateLabel = `${formatFullDate(item.waktu_mulai)} · ${formatTimeRange(item.waktu_mulai, item.waktu_selesai)}`;
@@ -1564,13 +1568,14 @@ const summaryCards = computed(() => {
     return acc;
   }, {});
 
+  const activeSchedules = jadwalMateri.value.filter((schedule) => !schedule.is_deleted);
   const weeklySessions = teachingSchedules.value.length;
   const completedSessions = teachingSchedules.value.filter((session) => session.status?.toLowerCase() === 'selesai').length;
-  const materialsCount = jadwalMateri.value.reduce((acc, schedule) => acc + (schedule.materi?.length || 0), 0);
-  const weeklyMaterials = jadwalMateri.value
+  const materialsCount = activeSchedules.reduce((acc, schedule) => acc + (schedule.materi?.length || 0), 0);
+  const weeklyMaterials = activeSchedules
     .filter((schedule) => isWithinCurrentWeek(schedule.waktu_mulai))
     .reduce((acc, schedule) => acc + (schedule.materi?.length || 0), 0);
-  const pendingMaterials = jadwalMateri.value.reduce(
+  const pendingMaterials = activeSchedules.reduce(
     (acc, schedule) => acc + (schedule.materi?.filter((m) => m.status && m.status.toLowerCase().includes('unggu')).length || 0),
     0
   );
