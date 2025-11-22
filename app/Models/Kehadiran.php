@@ -9,9 +9,13 @@ class Kehadiran extends Model
     protected $table = 'kehadiran';
     protected $guarded = ['id'];
 
-    // Tambahkan ini
     public function jadwalSesi()
     {
-        return $this->belongsTo(JadwalSesi::class, 'jadwal_sesi_id');
+        return $this->belongsTo(JadwalSesi::class, 'sesi_id');
+    }
+
+    public function siswa()
+    {
+        return $this->belongsTo(Siswa::class, 'siswa_id');
     }
 }

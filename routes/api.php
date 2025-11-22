@@ -6,6 +6,7 @@ use App\Http\Controllers\Api\DashboardOrangTuaController; // <--- Pastikan di-im
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\BeritaController;
 use App\Http\Controllers\Api\GuruJadwalMateriController;
+use App\Http\Controllers\Api\GuruKehadiranController;
 /*
 |--------------------------------------------------------------------------
 | API Routes
@@ -39,4 +40,9 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::put('/guru/jadwal/{jadwalSesi}', [GuruJadwalMateriController::class, 'update']);
     Route::post('/guru/jadwal/{jadwalSesi}/materi', [GuruJadwalMateriController::class, 'storeMaterial']);
     Route::put('/guru/materi/{materi}', [GuruJadwalMateriController::class, 'updateMaterial']);
+
+    // Rute Guru - Kehadiran
+    Route::get('/guru/kehadiran', [GuruKehadiranController::class, 'index']);
+    Route::post('/guru/kehadiran', [GuruKehadiranController::class, 'store']);
+    Route::delete('/guru/kehadiran/{kehadiran}', [GuruKehadiranController::class, 'destroy']);
 });
