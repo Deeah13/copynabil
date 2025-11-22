@@ -16,7 +16,7 @@ class GuruJadwalMateriController extends Controller
     {
         $user = $request->user();
 
-        $query = JadwalSesi::with('materi')->orderBy('waktu_mulai');
+        $query = JadwalSesi::withTrashed()->with('materi')->orderBy('waktu_mulai');
         if ($user) {
             $query->where('guru_id', $user->id);
         }
@@ -145,6 +145,42 @@ class GuruJadwalMateriController extends Controller
         ], 201);
     }
 
+    public function destroy(Request $request, JadwalSesi $jadwalSesi)
+    {
+        $user = $request->user();
+
+        if ($user && $jadwalSesi->guru_id !== $user->id) {
+            abort(403, 'Anda tidak berhak menghapus jadwal ini.');
+        }
+
+        $jadwalSesi->delete();
+        $deleted = JadwalSesi::withTrashed()->with('materi')->find($jadwalSesi->id);
+
+        return response()->json([
+            'message' => 'Jadwal berhasil dihapus',
+            'data' => $this->mapSchedule($deleted),
+        ]);
+    }
+
+    public function restore(Request $request, $jadwalId)
+    {
+        $jadwal = JadwalSesi::withTrashed()->with('materi')->findOrFail($jadwalId);
+        $user = $request->user();
+
+        if ($user && $jadwal->guru_id !== $user->id) {
+            abort(403, 'Anda tidak berhak memulihkan jadwal ini.');
+        }
+
+        if ($jadwal->trashed()) {
+            $jadwal->restore();
+        }
+
+        return response()->json([
+            'message' => 'Jadwal berhasil dipulihkan',
+            'data' => $this->mapSchedule($jadwal->fresh('materi')),
+        ]);
+    }
+
     public function updateMaterial(Request $request, Materi $materi)
     {
         $validated = $request->validate([
@@ -248,6 +284,8 @@ class GuruJadwalMateriController extends Controller
             'jumlah_peserta' => $jadwal->jumlah_peserta,
             'status' => $jadwal->status,
             'topik_pembelajaran' => $jadwal->topik_pembelajaran,
+            'deleted_at' => $jadwal->deleted_at,
+            'is_deleted' => $jadwal->trashed(),
             'materi' => $jadwal->materi->map(function ($materi) {
                 return [
                     'id' => $materi->id,
