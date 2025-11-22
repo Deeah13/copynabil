@@ -387,16 +387,25 @@
                   </tr>
                 </thead>
                 <tbody class="bg-white divide-y divide-gray-100 text-sm text-gray-700">
-                  <tr v-for="(student, index) in paginatedAttendance" :key="student.id">
+                  <tr v-if="isLoadingAttendance">
+                    <td colspan="5" class="px-6 py-6 text-center text-gray-400">Memuat data kehadiran...</td>
+                  </tr>
+                  <tr v-else v-for="(student, index) in paginatedAttendance" :key="student.id">
                     <td class="px-6 py-4">{{ attendanceStartIndex + index }}</td>
                     <td class="px-6 py-4">
                       <p class="font-semibold text-gray-900">{{ student.name }}</p>
                       <p class="text-xs text-gray-500">{{ student.session }}</p>
                     </td>
                     <td class="px-6 py-4">
-                      <span class="px-3 py-1 rounded-full text-xs font-semibold" :class="statusBadgeClass(student.status)">
-                        {{ student.status }}
-                      </span>
+                      <div class="flex items-center gap-3">
+                        <select v-model="student.selectedStatus"
+                          class="rounded-full border border-gray-200 bg-white px-3 py-1 text-xs font-semibold text-gray-700 focus:outline-none focus:ring-2 focus:ring-[#78AE4E]">
+                          <option v-for="option in attendanceInputStatuses" :key="option" :value="option">{{ option }}</option>
+                        </select>
+                        <span class="px-3 py-1 rounded-full text-xs font-semibold" :class="statusBadgeClass(student.status)">
+                          {{ student.status }}
+                        </span>
+                      </div>
                     </td>
                     <td class="px-6 py-4">
                       <button @click="openNoteModal(student)"
@@ -407,15 +416,16 @@
                       <p v-if="student.note" class="mt-2 text-xs text-gray-500">{{ student.note }}</p>
                     </td>
                     <td class="px-6 py-4 flex items-center gap-3">
-                      <button @click="handleEditAttendance(student)" class="text-[#78AE4E] hover:text-green-700" title="Edit">
-                        <PencilSquareIcon class="w-5 h-5" />
+                      <button @click="saveAttendance(student)" :disabled="student.saving || student.selectedStatus === student.status"
+                        class="px-4 py-2 rounded-full text-sm font-semibold text-white bg-[#78AE4E] hover:bg-green-700 disabled:opacity-60 disabled:cursor-not-allowed">
+                        Simpan
                       </button>
                       <button @click="removeAttendance(student.id)" class="text-red-500 hover:text-red-600" title="Hapus">
                         <TrashIcon class="w-5 h-5" />
                       </button>
                     </td>
                   </tr>
-                  <tr v-if="!paginatedAttendance.length">
+                  <tr v-if="!isLoadingAttendance && !paginatedAttendance.length">
                     <td colspan="5" class="px-6 py-6 text-center text-gray-400">Tidak ada data kehadiran</td>
                   </tr>
                 </tbody>
@@ -833,18 +843,12 @@ const quickActions = [
   },
 ];
 
-const attendanceStatusOptions = ['Semua', 'Hadir', 'Izin', 'Sakit', 'Alpha'];
+const attendanceStatusOptions = ['Semua', 'Hadir', 'Sakit', 'Izin', 'Alpha'];
+const attendanceInputStatuses = ['Hadir', 'Sakit', 'Izin', 'Alpha'];
 
-const attendanceRecords = ref([
-  { id: 1, name: 'Hanif Juansyah', session: 'Bahasa Indonesia - Pertemuan 3', status: 'Hadir', note: 'Aktif dan fokus' },
-  { id: 2, name: 'Fathiya Salsabila', session: 'Bahasa Indonesia - Pertemuan 3', status: 'Izin', note: 'Izin karena tugas lomba' },
-  { id: 3, name: 'Muhammad Umar', session: 'Bahasa Indonesia - Pertemuan 3', status: 'Hadir', note: 'Menyelesaikan tugas tepat waktu' },
-  { id: 4, name: 'Yayi Tisay', session: 'Bahasa Indonesia - Pertemuan 3', status: 'Sakit', note: 'Sakit, beristirahat di UKS' },
-  { id: 5, name: 'Cakim Mahendra', session: 'Bahasa Indonesia - Pertemuan 3', status: 'Hadir', note: 'Siswa menunjukkan peningkatan' },
-  { id: 6, name: 'Zovey Zahra', session: 'Bahasa Indonesia - Pertemuan 3', status: 'Alpha', note: 'Belum memberikan kabar' },
-  { id: 7, name: 'Sally', session: 'Bahasa Indonesia - Pertemuan 3', status: 'Hadir', note: 'Responsif saat diskusi' },
-  { id: 8, name: 'Dufi Nugraheni', session: 'Bahasa Indonesia - Pertemuan 3', status: 'Hadir', note: 'Suka membantu teman' },
-]);
+const attendanceRecords = ref([]);
+const attendanceSummary = ref({ hadir: 0, sakit: 0, izin: 0, alpha: 0 });
+const isLoadingAttendance = ref(false);
 
 const attendanceFilters = reactive({
   query: '',
@@ -863,21 +867,18 @@ const noteForm = reactive({
 });
 
 const attendanceSummaryCards = computed(() => {
-  const totals = attendanceRecords.value.reduce((acc, record) => {
-    acc[record.status] = (acc[record.status] || 0) + 1;
-    return acc;
-  }, {});
+  const summary = attendanceSummary.value;
 
   const baseCards = [
-    { id: 'hadir', label: 'Hadir', badge: 'bg-[#eaf6df] text-[#78AE4E]' },
-    { id: 'izin', label: 'Izin', badge: 'bg-blue-100 text-blue-700' },
-    { id: 'sakit', label: 'Sakit', badge: 'bg-amber-100 text-amber-700' },
-    { id: 'alpha', label: 'Alpha', badge: 'bg-red-100 text-red-600' },
+    { id: 'hadir', label: 'Hadir', badge: 'bg-[#eaf6df] text-[#78AE4E]', summaryKey: 'hadir' },
+    { id: 'izin', label: 'Izin', badge: 'bg-blue-100 text-blue-700', summaryKey: 'izin' },
+    { id: 'sakit', label: 'Sakit', badge: 'bg-amber-100 text-amber-700', summaryKey: 'sakit' },
+    { id: 'alpha', label: 'Alpha', badge: 'bg-red-100 text-red-600', summaryKey: 'alpha' },
   ];
 
   return baseCards.map((card) => ({
     ...card,
-    value: `${totals[card.label] || 0} Siswa`,
+    value: `${summary[card.summaryKey] || 0} Siswa`,
     subtitle: 'Rekap hari ini',
     badge: `${card.badge} font-semibold`,
   }));
@@ -911,11 +912,78 @@ const attendanceRangeLabel = computed(() => {
   return `Menampilkan ${start}-${end} dari ${total} siswa`;
 });
 
+const syncAttendanceSummary = (summaryPayload = null) => {
+  const totals = attendanceRecords.value.reduce((acc, record) => {
+    acc[record.status] = (acc[record.status] || 0) + 1;
+    return acc;
+  }, {});
+
+  attendanceSummary.value = {
+    hadir: summaryPayload?.hadir ?? totals.Hadir ?? 0,
+    sakit: summaryPayload?.sakit ?? totals.Sakit ?? 0,
+    izin: summaryPayload?.izin ?? totals.Izin ?? 0,
+    alpha: summaryPayload?.alpha ?? totals.Alpha ?? 0,
+  };
+};
+
+const formatSessionLabel = (payload) => {
+  const dateLabel = payload.sesi_waktu_mulai ? formatFullDate(payload.sesi_waktu_mulai) : null;
+  const timeRange = formatTimeRange(payload.sesi_waktu_mulai, payload.sesi_waktu_selesai);
+  const detailRange = timeRange !== '-' ? timeRange : null;
+
+  return [payload.sesi_topik, dateLabel, detailRange].filter(Boolean).join(' · ');
+};
+
+const loadAttendance = async () => {
+  isLoadingAttendance.value = true;
+  try {
+    const response = await axios.get('/api/guru/kehadiran');
+    const records = response.data?.data || [];
+
+    attendanceRecords.value = records.map((record) => ({
+      id: record.id,
+      siswa_id: record.siswa_id,
+      sesi_id: record.sesi_id,
+      name: record.siswa_nama,
+      session: formatSessionLabel(record) || record.sesi_topik || '-',
+      status: record.status,
+      selectedStatus: record.status,
+      note: record.catatan || '',
+    }));
+
+    attendancePagination.page = 1;
+
+    syncAttendanceSummary(response.data?.summary);
+  } catch (error) {
+    setError(error.response?.data?.message || 'Gagal memuat data kehadiran.');
+  } finally {
+    isLoadingAttendance.value = false;
+  }
+};
+
 const statusBadgeClass = (status) => {
   if (status === 'Hadir') return 'bg-[#eaf6df] text-[#78AE4E]';
   if (status === 'Izin') return 'bg-blue-100 text-blue-700';
   if (status === 'Sakit') return 'bg-amber-100 text-amber-700';
   return 'bg-red-100 text-red-600';
+};
+
+const saveAttendance = async (student) => {
+  if (!student?.siswa_id || !student?.sesi_id) return;
+  student.saving = true;
+  try {
+    await axios.post('/api/guru/kehadiran', {
+      siswa_id: student.siswa_id,
+      sesi_id: student.sesi_id,
+      status: student.selectedStatus,
+    });
+    setSuccess('Status kehadiran berhasil disimpan.');
+    await loadAttendance();
+  } catch (error) {
+    setError(error.response?.data?.message || 'Gagal menyimpan status kehadiran.');
+  } finally {
+    student.saving = false;
+  }
 };
 
 const openNoteModal = (student) => {
@@ -938,14 +1006,15 @@ const saveNote = () => {
   closeNoteModal();
 };
 
-const handleEditAttendance = (student) => {
-  openNoteModal(student);
-};
-
-const removeAttendance = (studentId) => {
-  attendanceRecords.value = attendanceRecords.value.filter((record) => record.id !== studentId);
-  attendancePagination.page = 1;
-  setSuccess('Data kehadiran berhasil dihapus.');
+const removeAttendance = async (attendanceId) => {
+  if (!attendanceId) return;
+  try {
+    await axios.delete(`/api/guru/kehadiran/${attendanceId}`);
+    setSuccess('Data kehadiran berhasil dihapus.');
+    await loadAttendance();
+  } catch (error) {
+    setError(error.response?.data?.message || 'Gagal menghapus data kehadiran.');
+  }
 };
 
 const notifications = ref([
@@ -1083,6 +1152,7 @@ const handleClickOutside = (event) => {
 onMounted(() => {
   document.addEventListener('click', handleClickOutside);
   loadJadwalMateri();
+  loadAttendance();
 });
 
 onUnmounted(() => {
@@ -1216,10 +1286,18 @@ const submitAddSchedule = async () => {
   formData.append('tanggal', addForm.tanggal);
   formData.append('waktu_mulai', addForm.jam_mulai);
   formData.append('waktu_selesai', addForm.jam_selesai);
-  formData.append('lokasi', addForm.lokasi);
-  formData.append('topik_pembelajaran', addForm.topik_pembelajaran);
-  formData.append('deskripsi', addForm.deskripsi);
-  formData.append('jumlah_peserta', addForm.jumlah_peserta);
+  if (addForm.lokasi) {
+    formData.append('lokasi', addForm.lokasi);
+  }
+  if (addForm.topik_pembelajaran) {
+    formData.append('topik_pembelajaran', addForm.topik_pembelajaran);
+  }
+  if (addForm.deskripsi) {
+    formData.append('deskripsi', addForm.deskripsi);
+  }
+  if (addForm.jumlah_peserta !== null && addForm.jumlah_peserta !== undefined && addForm.jumlah_peserta !== '') {
+    formData.append('jumlah_peserta', addForm.jumlah_peserta);
+  }
   addForm.materi_uploads.forEach((file, index) => {
     formData.append(`materi_uploads[${index}]`, file);
     formData.append(`materi_titles[${index}]`, file.name);
@@ -1403,9 +1481,12 @@ const submitEditSchedule = async () => {
       tanggal: editForm.tanggal,
       waktu_mulai: editForm.jam_mulai,
       waktu_selesai: editForm.jam_selesai,
-      lokasi: editForm.lokasi,
-      jumlah_peserta: editForm.jumlah_peserta,
-      deskripsi: editForm.deskripsi,
+      lokasi: editForm.lokasi || undefined,
+      jumlah_peserta:
+        editForm.jumlah_peserta !== null && editForm.jumlah_peserta !== undefined && editForm.jumlah_peserta !== ''
+          ? editForm.jumlah_peserta
+          : undefined,
+      deskripsi: editForm.deskripsi || undefined,
     });
     showEditScheduleModal.value = false;
     setSuccess('Jadwal berhasil diperbarui.');
