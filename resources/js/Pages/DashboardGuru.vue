@@ -257,13 +257,26 @@
             </div>
 
             <div v-else class="mt-6 space-y-6">
-              <article v-for="schedule in jadwalMateri" :key="schedule.id" class="rounded-3xl border border-gray-100 bg-[#fdfcf9] p-5 shadow-sm">
+              <article
+                v-for="schedule in jadwalMateri"
+                :key="schedule.id"
+                :class="[
+                  'rounded-3xl border p-5 shadow-sm transition',
+                  schedule.is_deleted ? 'border-red-100 bg-red-50/70 ring-1 ring-red-100' : 'border-gray-100 bg-[#fdfcf9]',
+                ]"
+              >
                 <div class="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-4">
                   <div class="flex-1 space-y-2">
                     <div class="flex items-center gap-3">
                       <p class="text-lg font-semibold text-gray-900">{{ formatFullDate(schedule.waktu_mulai) }}</p>
                       <span class="px-3 py-1 rounded-full text-xs font-semibold" :class="badgeClass(schedule.status)">
                         {{ schedule.status }}
+                      </span>
+                      <span
+                        v-if="schedule.is_deleted"
+                        class="px-3 py-1 rounded-full text-xs font-semibold bg-red-100 text-red-700 border border-red-200"
+                      >
+                        Terhapus
                       </span>
                     </div>
                     <p class="text-xl font-bold text-gray-900">{{ schedule.topik }}</p>
@@ -286,12 +299,38 @@
                     </div>
                   </div>
 
-                  <div class="flex flex-wrap gap-3 self-start">
-                    <button @click="openEditSchedule(schedule)" class="px-4 py-2 rounded-full border border-gray-200 text-sm font-semibold text-gray-700 bg-white">
+                  <div class="flex flex-wrap gap-3 self-start items-center">
+                    <button
+                      @click="openEditSchedule(schedule)"
+                      :disabled="schedule.is_deleted"
+                      class="px-4 py-2 rounded-full border border-gray-200 text-sm font-semibold text-gray-700 bg-white disabled:opacity-60 disabled:cursor-not-allowed"
+                    >
                       Edit Jadwal
                     </button>
-                    <button @click="openEditMateri(schedule)" class="px-4 py-2 rounded-full border border-[#78AE4E]/60 text-sm font-semibold text-[#78AE4E] bg-[#f1f8e9]">
+                    <button
+                      @click="openEditMateri(schedule)"
+                      :disabled="schedule.is_deleted"
+                      class="px-4 py-2 rounded-full border border-[#78AE4E]/60 text-sm font-semibold text-[#78AE4E] bg-[#f1f8e9] disabled:opacity-60 disabled:cursor-not-allowed"
+                    >
                       Edit Materi
+                    </button>
+                    <button
+                      v-if="!schedule.is_deleted"
+                      @click="deleteSchedule(schedule)"
+                      :disabled="scheduleActionState.deleting[schedule.id]"
+                      class="px-4 py-2 rounded-full border border-red-200 text-sm font-semibold text-red-600 bg-red-50 hover:bg-red-100 disabled:opacity-60 disabled:cursor-not-allowed flex items-center gap-2"
+                    >
+                      <TrashIcon class="w-5 h-5" />
+                      <span>{{ scheduleActionState.deleting[schedule.id] ? 'Menghapus...' : 'Hapus' }}</span>
+                    </button>
+                    <button
+                      v-else
+                      @click="restoreSchedule(schedule)"
+                      :disabled="scheduleActionState.restoring[schedule.id]"
+                      class="px-4 py-2 rounded-full border border-blue-200 text-sm font-semibold text-blue-700 bg-blue-50 hover:bg-blue-100 disabled:opacity-60 disabled:cursor-not-allowed flex items-center gap-2"
+                    >
+                      <ArrowPathIcon class="w-5 h-5" />
+                      <span>{{ scheduleActionState.restoring[schedule.id] ? 'Memulihkan...' : 'Pulihkan' }}</span>
                     </button>
                   </div>
                 </div>
@@ -387,16 +426,25 @@
                   </tr>
                 </thead>
                 <tbody class="bg-white divide-y divide-gray-100 text-sm text-gray-700">
-                  <tr v-for="(student, index) in paginatedAttendance" :key="student.id">
+                  <tr v-if="isLoadingAttendance">
+                    <td colspan="5" class="px-6 py-6 text-center text-gray-400">Memuat data kehadiran...</td>
+                  </tr>
+                  <tr v-else v-for="(student, index) in paginatedAttendance" :key="student.id">
                     <td class="px-6 py-4">{{ attendanceStartIndex + index }}</td>
                     <td class="px-6 py-4">
                       <p class="font-semibold text-gray-900">{{ student.name }}</p>
                       <p class="text-xs text-gray-500">{{ student.session }}</p>
                     </td>
                     <td class="px-6 py-4">
-                      <span class="px-3 py-1 rounded-full text-xs font-semibold" :class="statusBadgeClass(student.status)">
-                        {{ student.status }}
-                      </span>
+                      <div class="flex items-center gap-3">
+                        <select v-model="student.selectedStatus"
+                          class="rounded-full border border-gray-200 bg-white px-3 py-1 text-xs font-semibold text-gray-700 focus:outline-none focus:ring-2 focus:ring-[#78AE4E]">
+                          <option v-for="option in attendanceInputStatuses" :key="option" :value="option">{{ option }}</option>
+                        </select>
+                        <span class="px-3 py-1 rounded-full text-xs font-semibold" :class="statusBadgeClass(student.status)">
+                          {{ student.status }}
+                        </span>
+                      </div>
                     </td>
                     <td class="px-6 py-4">
                       <button @click="openNoteModal(student)"
@@ -407,15 +455,16 @@
                       <p v-if="student.note" class="mt-2 text-xs text-gray-500">{{ student.note }}</p>
                     </td>
                     <td class="px-6 py-4 flex items-center gap-3">
-                      <button @click="handleEditAttendance(student)" class="text-[#78AE4E] hover:text-green-700" title="Edit">
-                        <PencilSquareIcon class="w-5 h-5" />
+                      <button @click="saveAttendance(student)" :disabled="student.saving || student.selectedStatus === student.status"
+                        class="px-4 py-2 rounded-full text-sm font-semibold text-white bg-[#78AE4E] hover:bg-green-700 disabled:opacity-60 disabled:cursor-not-allowed">
+                        Simpan
                       </button>
                       <button @click="removeAttendance(student.id)" class="text-red-500 hover:text-red-600" title="Hapus">
                         <TrashIcon class="w-5 h-5" />
                       </button>
                     </td>
                   </tr>
-                  <tr v-if="!paginatedAttendance.length">
+                  <tr v-if="!isLoadingAttendance && !paginatedAttendance.length">
                     <td colspan="5" class="px-6 py-6 text-center text-gray-400">Tidak ada data kehadiran</td>
                   </tr>
                 </tbody>
@@ -540,7 +589,7 @@
             </div>
             <div>
               <label class="text-sm font-semibold text-gray-700">Hari, Tanggal</label>
-              <input v-model="addForm.tanggal" required type="date"
+              <input v-model="addForm.tanggal" required type="date" :min="minScheduleDate"
                 class="mt-1 w-full rounded-2xl border border-gray-200 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#78AE4E]">
             </div>
             <div class="grid grid-cols-2 gap-3">
@@ -624,7 +673,7 @@
             </div>
             <div>
               <label class="text-sm font-semibold text-gray-700">Hari, Tanggal</label>
-              <input v-model="editForm.tanggal" required type="date" class="mt-1 w-full rounded-2xl border border-gray-200 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#78AE4E]">
+              <input v-model="editForm.tanggal" required type="date" :min="minScheduleDate" class="mt-1 w-full rounded-2xl border border-gray-200 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#78AE4E]">
             </div>
             <div class="grid grid-cols-2 gap-3">
               <div>
@@ -788,7 +837,8 @@ import {
   UserGroupIcon,
   UserIcon,
   PencilSquareIcon,
-  TrashIcon
+  TrashIcon,
+  ArrowPathIcon
 } from '@heroicons/vue/24/outline';
 import { ArrowDownCircleIcon, ArrowUpCircleIcon } from '@heroicons/vue/24/solid';
 
@@ -801,6 +851,19 @@ const menus = reactive({
 
 const activeSection = ref('beranda');
 const headerSubtitle = ref('Menu Utama · Beranda');
+
+const ensureAuthHeader = () => {
+  const token = localStorage.getItem('token');
+  if (token) {
+    axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
+  }
+};
+
+const redirectToLogin = () => {
+  localStorage.removeItem('token');
+  delete axios.defaults.headers.common['Authorization'];
+  router.push('/login');
+};
 
 const quickActions = [
   {
@@ -833,18 +896,12 @@ const quickActions = [
   },
 ];
 
-const attendanceStatusOptions = ['Semua', 'Hadir', 'Izin', 'Sakit', 'Alpha'];
+const attendanceStatusOptions = ['Semua', 'Hadir', 'Sakit', 'Izin', 'Alpha'];
+const attendanceInputStatuses = ['Hadir', 'Sakit', 'Izin', 'Alpha'];
 
-const attendanceRecords = ref([
-  { id: 1, name: 'Hanif Juansyah', session: 'Bahasa Indonesia - Pertemuan 3', status: 'Hadir', note: 'Aktif dan fokus' },
-  { id: 2, name: 'Fathiya Salsabila', session: 'Bahasa Indonesia - Pertemuan 3', status: 'Izin', note: 'Izin karena tugas lomba' },
-  { id: 3, name: 'Muhammad Umar', session: 'Bahasa Indonesia - Pertemuan 3', status: 'Hadir', note: 'Menyelesaikan tugas tepat waktu' },
-  { id: 4, name: 'Yayi Tisay', session: 'Bahasa Indonesia - Pertemuan 3', status: 'Sakit', note: 'Sakit, beristirahat di UKS' },
-  { id: 5, name: 'Cakim Mahendra', session: 'Bahasa Indonesia - Pertemuan 3', status: 'Hadir', note: 'Siswa menunjukkan peningkatan' },
-  { id: 6, name: 'Zovey Zahra', session: 'Bahasa Indonesia - Pertemuan 3', status: 'Alpha', note: 'Belum memberikan kabar' },
-  { id: 7, name: 'Sally', session: 'Bahasa Indonesia - Pertemuan 3', status: 'Hadir', note: 'Responsif saat diskusi' },
-  { id: 8, name: 'Dufi Nugraheni', session: 'Bahasa Indonesia - Pertemuan 3', status: 'Hadir', note: 'Suka membantu teman' },
-]);
+const attendanceRecords = ref([]);
+const attendanceSummary = ref({ hadir: 0, sakit: 0, izin: 0, alpha: 0 });
+const isLoadingAttendance = ref(false);
 
 const attendanceFilters = reactive({
   query: '',
@@ -863,21 +920,18 @@ const noteForm = reactive({
 });
 
 const attendanceSummaryCards = computed(() => {
-  const totals = attendanceRecords.value.reduce((acc, record) => {
-    acc[record.status] = (acc[record.status] || 0) + 1;
-    return acc;
-  }, {});
+  const summary = attendanceSummary.value;
 
   const baseCards = [
-    { id: 'hadir', label: 'Hadir', badge: 'bg-[#eaf6df] text-[#78AE4E]' },
-    { id: 'izin', label: 'Izin', badge: 'bg-blue-100 text-blue-700' },
-    { id: 'sakit', label: 'Sakit', badge: 'bg-amber-100 text-amber-700' },
-    { id: 'alpha', label: 'Alpha', badge: 'bg-red-100 text-red-600' },
+    { id: 'hadir', label: 'Hadir', badge: 'bg-[#eaf6df] text-[#78AE4E]', summaryKey: 'hadir' },
+    { id: 'izin', label: 'Izin', badge: 'bg-blue-100 text-blue-700', summaryKey: 'izin' },
+    { id: 'sakit', label: 'Sakit', badge: 'bg-amber-100 text-amber-700', summaryKey: 'sakit' },
+    { id: 'alpha', label: 'Alpha', badge: 'bg-red-100 text-red-600', summaryKey: 'alpha' },
   ];
 
   return baseCards.map((card) => ({
     ...card,
-    value: `${totals[card.label] || 0} Siswa`,
+    value: `${summary[card.summaryKey] || 0} Siswa`,
     subtitle: 'Rekap hari ini',
     badge: `${card.badge} font-semibold`,
   }));
@@ -911,11 +965,86 @@ const attendanceRangeLabel = computed(() => {
   return `Menampilkan ${start}-${end} dari ${total} siswa`;
 });
 
+const syncAttendanceSummary = (summaryPayload = null) => {
+  const totals = attendanceRecords.value.reduce((acc, record) => {
+    acc[record.status] = (acc[record.status] || 0) + 1;
+    return acc;
+  }, {});
+
+  attendanceSummary.value = {
+    hadir: summaryPayload?.hadir ?? totals.Hadir ?? 0,
+    sakit: summaryPayload?.sakit ?? totals.Sakit ?? 0,
+    izin: summaryPayload?.izin ?? totals.Izin ?? 0,
+    alpha: summaryPayload?.alpha ?? totals.Alpha ?? 0,
+  };
+};
+
+const formatSessionLabel = (payload) => {
+  const dateLabel = payload.sesi_waktu_mulai ? formatFullDate(payload.sesi_waktu_mulai) : null;
+  const timeRange = formatTimeRange(payload.sesi_waktu_mulai, payload.sesi_waktu_selesai);
+  const detailRange = timeRange !== '-' ? timeRange : null;
+
+  return [payload.sesi_topik, dateLabel, detailRange].filter(Boolean).join(' · ');
+};
+
+const loadAttendance = async () => {
+  isLoadingAttendance.value = true;
+  try {
+    ensureAuthHeader();
+    const response = await axios.get('/api/guru/kehadiran');
+    const records = response.data?.data || [];
+
+    attendanceRecords.value = records.map((record) => ({
+      id: record.id,
+      siswa_id: record.siswa_id,
+      sesi_id: record.sesi_id,
+      name: record.siswa_nama,
+      session: formatSessionLabel(record) || record.sesi_topik || '-',
+      status: record.status,
+      selectedStatus: record.status,
+      note: record.catatan || '',
+    }));
+
+    attendancePagination.page = 1;
+
+    syncAttendanceSummary(response.data?.summary);
+  } catch (error) {
+    if (handleAuthError(error, 'Gagal memuat data kehadiran.')) {
+      return;
+    }
+  } finally {
+    isLoadingAttendance.value = false;
+  }
+};
+
 const statusBadgeClass = (status) => {
   if (status === 'Hadir') return 'bg-[#eaf6df] text-[#78AE4E]';
   if (status === 'Izin') return 'bg-blue-100 text-blue-700';
   if (status === 'Sakit') return 'bg-amber-100 text-amber-700';
   return 'bg-red-100 text-red-600';
+};
+
+const saveAttendance = async (student) => {
+  if (!student?.siswa_id || !student?.sesi_id) return;
+  student.saving = true;
+  try {
+    ensureAuthHeader();
+    await axios.post('/api/guru/kehadiran', {
+      siswa_id: student.siswa_id,
+      sesi_id: student.sesi_id,
+      status: student.selectedStatus,
+    });
+    setSuccess('Status kehadiran berhasil disimpan.');
+    await loadAttendance();
+  } catch (error) {
+    if (handleAuthError(error)) {
+      return;
+    }
+
+    setError(error.response?.data?.message || 'Gagal menyimpan status kehadiran.');
+  } finally {
+    student.saving = false;
+  }
 };
 
 const openNoteModal = (student) => {
@@ -938,14 +1067,20 @@ const saveNote = () => {
   closeNoteModal();
 };
 
-const handleEditAttendance = (student) => {
-  openNoteModal(student);
-};
+const removeAttendance = async (attendanceId) => {
+  if (!attendanceId) return;
+  try {
+    ensureAuthHeader();
+    await axios.delete(`/api/guru/kehadiran/${attendanceId}`);
+    setSuccess('Data kehadiran berhasil dihapus.');
+    await loadAttendance();
+  } catch (error) {
+    if (handleAuthError(error)) {
+      return;
+    }
 
-const removeAttendance = (studentId) => {
-  attendanceRecords.value = attendanceRecords.value.filter((record) => record.id !== studentId);
-  attendancePagination.page = 1;
-  setSuccess('Data kehadiran berhasil dihapus.');
+    setError(error.response?.data?.message || 'Gagal menghapus data kehadiran.');
+  }
 };
 
 const notifications = ref([
@@ -961,6 +1096,7 @@ const uploadProgress = ref(0);
 const materialUploadProgress = ref(0);
 const addTimeError = ref('');
 const editTimeError = ref('');
+const scheduleActionState = reactive({ deleting: {}, restoring: {} });
 
 const showAddModal = ref(false);
 const showEditScheduleModal = ref(false);
@@ -970,6 +1106,21 @@ const materialInput = ref(null);
 const newMaterialInput = ref(null);
 const selectedSchedule = ref(null);
 const selectedMaterialFile = ref(null);
+const formatLocalDateString = (date) => {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
+
+const parseDateInput = (value) => {
+  if (!value) return null;
+  const [year, month, day] = value.split('-').map(Number);
+  if (!year || !month || !day) return null;
+  return new Date(year, month - 1, day);
+};
+
+const minScheduleDate = computed(() => formatLocalDateString(new Date()));
 
 const addForm = reactive({
   topik: '',
@@ -1082,7 +1233,9 @@ const handleClickOutside = (event) => {
 
 onMounted(() => {
   document.addEventListener('click', handleClickOutside);
+  ensureAuthHeader();
   loadJadwalMateri();
+  loadAttendance();
 });
 
 onUnmounted(() => {
@@ -1104,28 +1257,40 @@ const handleLogout = async () => {
   } catch (error) {
     console.error('Logout error:', error);
   } finally {
-    localStorage.removeItem('token');
-    delete axios.defaults.headers.common['Authorization'];
-    router.push('/login');
+    redirectToLogin();
   }
 };
 
 const loadJadwalMateri = async () => {
   isLoadingJadwal.value = true;
   try {
+    ensureAuthHeader();
     const { data } = await axios.get('/api/guru/jadwal-materi');
     jadwalMateri.value = data.data || [];
   } catch (error) {
     console.error('Gagal memuat jadwal guru:', error);
+    if (handleAuthError(error, 'Sesi Anda telah berakhir. Silakan login kembali.')) {
+      return;
+    }
   } finally {
     isLoadingJadwal.value = false;
+  }
+};
+
+const upsertSchedule = (payload) => {
+  if (!payload) return;
+  const index = jadwalMateri.value.findIndex((item) => item.id === payload.id);
+  if (index !== -1) {
+    jadwalMateri.value.splice(index, 1, payload);
+  } else {
+    jadwalMateri.value.unshift(payload);
   }
 };
 
 const resetAddForm = () => {
   addForm.topik = '';
   addForm.topik_pembelajaran = '';
-  addForm.tanggal = '';
+  addForm.tanggal = minScheduleDate.value;
   addForm.jam_mulai = '';
   addForm.jam_selesai = '';
   addForm.lokasi = '';
@@ -1168,6 +1333,20 @@ const setSuccess = (message) => {
   }, 4000);
 };
 
+const handleAuthError = (error, fallbackMessage) => {
+  if (error?.response?.status === 401) {
+    setError('Sesi Anda telah berakhir. Silakan login kembali.');
+    redirectToLogin();
+    return true;
+  }
+
+  if (fallbackMessage) {
+    setError(fallbackMessage);
+  }
+
+  return false;
+};
+
 const isValidTimeRange = (start, end) => {
   if (!start || !end) return true;
   const [startHour, startMinute] = start.split(':').map(Number);
@@ -1175,6 +1354,16 @@ const isValidTimeRange = (start, end) => {
   const startTotal = startHour * 60 + startMinute;
   const endTotal = endHour * 60 + endMinute;
   return endTotal > startTotal;
+};
+
+const isValidDate = (value) => {
+  if (!value) return false;
+  const selected = parseDateInput(value);
+  if (!selected) return false;
+  selected.setHours(0, 0, 0, 0);
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  return selected >= today;
 };
 
 watch(
@@ -1206,20 +1395,34 @@ watch(
 );
 
 const submitAddSchedule = async () => {
+  if (!isValidDate(addForm.tanggal)) {
+    setError('Tanggal tidak boleh kurang dari hari ini.');
+    return;
+  }
+
   if (!isValidTimeRange(addForm.jam_mulai, addForm.jam_selesai)) {
     addTimeError.value = 'Jam selesai harus lebih besar dari jam mulai.';
     return;
   }
 
+  ensureAuthHeader();
   const formData = new FormData();
   formData.append('topik', addForm.topik);
   formData.append('tanggal', addForm.tanggal);
   formData.append('waktu_mulai', addForm.jam_mulai);
   formData.append('waktu_selesai', addForm.jam_selesai);
-  formData.append('lokasi', addForm.lokasi);
-  formData.append('topik_pembelajaran', addForm.topik_pembelajaran);
-  formData.append('deskripsi', addForm.deskripsi);
-  formData.append('jumlah_peserta', addForm.jumlah_peserta);
+  if (addForm.lokasi) {
+    formData.append('lokasi', addForm.lokasi);
+  }
+  if (addForm.topik_pembelajaran) {
+    formData.append('topik_pembelajaran', addForm.topik_pembelajaran);
+  }
+  if (addForm.deskripsi) {
+    formData.append('deskripsi', addForm.deskripsi);
+  }
+  if (addForm.jumlah_peserta !== null && addForm.jumlah_peserta !== undefined && addForm.jumlah_peserta !== '') {
+    formData.append('jumlah_peserta', addForm.jumlah_peserta);
+  }
   addForm.materi_uploads.forEach((file, index) => {
     formData.append(`materi_uploads[${index}]`, file);
     formData.append(`materi_titles[${index}]`, file.name);
@@ -1243,9 +1446,59 @@ const submitAddSchedule = async () => {
       return;
     }
 
+    if (handleAuthError(error)) {
+      return;
+    }
+
     setError(error.response?.data?.message || 'Terjadi kesalahan saat menambahkan jadwal.');
   } finally {
     uploadProgress.value = 0;
+  }
+};
+
+const deleteSchedule = async (schedule) => {
+  const id = schedule?.id;
+  if (!id || scheduleActionState.deleting[id]) return;
+
+  try {
+    scheduleActionState.deleting[id] = true;
+    ensureAuthHeader();
+    const { data } = await axios.delete(`/api/guru/jadwal/${id}`);
+    upsertSchedule(data.data);
+    setSuccess('Jadwal berhasil dihapus.');
+    await loadJadwalMateri();
+  } catch (error) {
+    console.error('Gagal menghapus jadwal:', error);
+    if (handleAuthError(error)) {
+      return;
+    }
+
+    setError(error.response?.data?.message || 'Tidak dapat menghapus jadwal.');
+  } finally {
+    scheduleActionState.deleting[id] = false;
+  }
+};
+
+const restoreSchedule = async (schedule) => {
+  const id = schedule?.id;
+  if (!id || scheduleActionState.restoring[id]) return;
+
+  try {
+    scheduleActionState.restoring[id] = true;
+    ensureAuthHeader();
+    const { data } = await axios.post(`/api/guru/jadwal/${id}/restore`);
+    upsertSchedule(data.data);
+    setSuccess('Jadwal berhasil dipulihkan.');
+    await loadJadwalMateri();
+  } catch (error) {
+    console.error('Gagal memulihkan jadwal:', error);
+    if (handleAuthError(error)) {
+      return;
+    }
+
+    setError(error.response?.data?.message || 'Tidak dapat memulihkan jadwal.');
+  } finally {
+    scheduleActionState.restoring[id] = false;
   }
 };
 
@@ -1286,7 +1539,9 @@ const isWithinCurrentWeek = (value) => {
 };
 
 const teachingSchedules = computed(() => {
-  return jadwalMateri.value
+  const activeSchedules = jadwalMateri.value.filter((item) => !item.is_deleted);
+
+  return activeSchedules
     .filter((item) => isWithinCurrentWeek(item.waktu_mulai))
     .map((item) => {
       const dateLabel = `${formatFullDate(item.waktu_mulai)} · ${formatTimeRange(item.waktu_mulai, item.waktu_selesai)}`;
@@ -1313,13 +1568,14 @@ const summaryCards = computed(() => {
     return acc;
   }, {});
 
+  const activeSchedules = jadwalMateri.value.filter((schedule) => !schedule.is_deleted);
   const weeklySessions = teachingSchedules.value.length;
   const completedSessions = teachingSchedules.value.filter((session) => session.status?.toLowerCase() === 'selesai').length;
-  const materialsCount = jadwalMateri.value.reduce((acc, schedule) => acc + (schedule.materi?.length || 0), 0);
-  const weeklyMaterials = jadwalMateri.value
+  const materialsCount = activeSchedules.reduce((acc, schedule) => acc + (schedule.materi?.length || 0), 0);
+  const weeklyMaterials = activeSchedules
     .filter((schedule) => isWithinCurrentWeek(schedule.waktu_mulai))
     .reduce((acc, schedule) => acc + (schedule.materi?.length || 0), 0);
-  const pendingMaterials = jadwalMateri.value.reduce(
+  const pendingMaterials = activeSchedules.reduce(
     (acc, schedule) => acc + (schedule.materi?.filter((m) => m.status && m.status.toLowerCase().includes('unggu')).length || 0),
     0
   );
@@ -1373,7 +1629,7 @@ const badgeClass = (status) => {
 const openEditSchedule = (schedule) => {
   editForm.id = schedule.id;
   editForm.topik = schedule.topik;
-  editForm.tanggal = schedule.waktu_mulai ? new Date(schedule.waktu_mulai).toISOString().slice(0, 10) : '';
+  editForm.tanggal = schedule.waktu_mulai ? formatLocalDateString(new Date(schedule.waktu_mulai)) : '';
   const start = formatTime(schedule.waktu_mulai);
   const end = formatTime(schedule.waktu_selesai);
   editForm.jam_mulai = start ? start.replace('.', ':') : '';
@@ -1392,20 +1648,29 @@ const closeEditSchedule = () => {
 };
 
 const submitEditSchedule = async () => {
+  if (!isValidDate(editForm.tanggal)) {
+    setError('Tanggal tidak boleh kurang dari hari ini.');
+    return;
+  }
+
   if (!isValidTimeRange(editForm.jam_mulai, editForm.jam_selesai)) {
     editTimeError.value = 'Jam selesai harus lebih besar dari jam mulai.';
     return;
   }
 
   try {
+    ensureAuthHeader();
     await axios.put(`/api/guru/jadwal/${editForm.id}`, {
       topik: editForm.topik,
       tanggal: editForm.tanggal,
       waktu_mulai: editForm.jam_mulai,
       waktu_selesai: editForm.jam_selesai,
-      lokasi: editForm.lokasi,
-      jumlah_peserta: editForm.jumlah_peserta,
-      deskripsi: editForm.deskripsi,
+      lokasi: editForm.lokasi || undefined,
+      jumlah_peserta:
+        editForm.jumlah_peserta !== null && editForm.jumlah_peserta !== undefined && editForm.jumlah_peserta !== ''
+          ? editForm.jumlah_peserta
+          : undefined,
+      deskripsi: editForm.deskripsi || undefined,
     });
     showEditScheduleModal.value = false;
     setSuccess('Jadwal berhasil diperbarui.');
@@ -1415,6 +1680,10 @@ const submitEditSchedule = async () => {
     const serverErrors = error.response?.data?.errors;
     if (serverErrors?.waktu_selesai?.length) {
       editTimeError.value = serverErrors.waktu_selesai[0];
+      return;
+    }
+
+    if (handleAuthError(error)) {
       return;
     }
 
@@ -1442,17 +1711,18 @@ const onReplaceFile = (event, material) => {
   }
 };
 
-  const submitEditMateri = async () => {
-    try {
-      for (const material of materiForm.existing) {
-        const formData = new FormData();
-        formData.append('judul', material.judul);
-        formData.append('deskripsi', material.deskripsi || '');
-        if (material.newFile) {
-          formData.append('file', material.newFile);
-        }
-        await axios.post(`/api/guru/materi/${material.id}?_method=PUT`, formData, {
-          headers: { 'Content-Type': 'multipart/form-data' },
+const submitEditMateri = async () => {
+  try {
+    ensureAuthHeader();
+    for (const material of materiForm.existing) {
+      const formData = new FormData();
+      formData.append('judul', material.judul);
+      formData.append('deskripsi', material.deskripsi || '');
+      if (material.newFile) {
+        formData.append('file', material.newFile);
+      }
+      await axios.post(`/api/guru/materi/${material.id}?_method=PUT`, formData, {
+        headers: { 'Content-Type': 'multipart/form-data' },
       });
     }
 
@@ -1477,6 +1747,10 @@ const onReplaceFile = (event, material) => {
     await loadJadwalMateri();
   } catch (error) {
     console.error('Gagal memperbarui materi:', error);
+    if (handleAuthError(error)) {
+      return;
+    }
+
     setError('Materi gagal diperbarui. Coba unggah ulang file.');
   } finally {
     materialUploadProgress.value = 0;

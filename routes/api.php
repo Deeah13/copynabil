@@ -6,6 +6,7 @@ use App\Http\Controllers\Api\DashboardOrangTuaController; // <--- Pastikan di-im
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\BeritaController;
 use App\Http\Controllers\Api\GuruJadwalMateriController;
+use App\Http\Controllers\Api\GuruKehadiranController;
 /*
 |--------------------------------------------------------------------------
 | API Routes
@@ -37,6 +38,13 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/guru/jadwal-materi', [GuruJadwalMateriController::class, 'index']);
     Route::post('/guru/jadwal', [GuruJadwalMateriController::class, 'store']);
     Route::put('/guru/jadwal/{jadwalSesi}', [GuruJadwalMateriController::class, 'update']);
+    Route::delete('/guru/jadwal/{jadwalSesi}', [GuruJadwalMateriController::class, 'destroy']);
+    Route::post('/guru/jadwal/{jadwalSesi}/restore', [GuruJadwalMateriController::class, 'restore']);
     Route::post('/guru/jadwal/{jadwalSesi}/materi', [GuruJadwalMateriController::class, 'storeMaterial']);
     Route::put('/guru/materi/{materi}', [GuruJadwalMateriController::class, 'updateMaterial']);
+
+    // Rute Guru - Kehadiran
+    Route::get('/guru/kehadiran', [GuruKehadiranController::class, 'index']);
+    Route::post('/guru/kehadiran', [GuruKehadiranController::class, 'store']);
+    Route::delete('/guru/kehadiran/{kehadiran}', [GuruKehadiranController::class, 'destroy']);
 });
