@@ -1,11 +1,19 @@
 <?php
 namespace App\Models;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\SoftDeletes;
 
 class JadwalSesi extends Model
 {
+    use SoftDeletes;
+
     protected $table = 'jadwal_sesi';
     protected $guarded = ['id'];
+
+    protected $casts = [
+        'waktu_mulai' => 'datetime',
+        'waktu_selesai' => 'datetime',
+    ];
 
     public function guru()
     {
