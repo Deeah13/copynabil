@@ -321,25 +321,6 @@
                   </div>
                 </div>
               </article>
-              <div v-if="jadwalPagination.lastPage > 1" class="flex items-center justify-center gap-3 pt-2">
-                <button
-                  class="px-4 py-2 rounded-full border border-gray-200 text-sm font-semibold"
-                  :class="jadwalPagination.hasPrev ? 'text-gray-700 bg-white' : 'text-gray-400 bg-gray-50 cursor-not-allowed'"
-                  :disabled="!jadwalPagination.hasPrev"
-                  @click="changeJadwalPage(jadwalPagination.page - 1)"
-                >
-                  Halaman Sebelumnya
-                </button>
-                <span class="text-sm text-gray-500 font-semibold">Halaman {{ jadwalPagination.page }} dari {{ jadwalPagination.lastPage }}</span>
-                <button
-                  class="px-4 py-2 rounded-full border border-gray-200 text-sm font-semibold"
-                  :class="jadwalPagination.hasNext ? 'text-gray-700 bg-white' : 'text-gray-400 bg-gray-50 cursor-not-allowed'"
-                  :disabled="!jadwalPagination.hasNext"
-                  @click="changeJadwalPage(jadwalPagination.page + 1)"
-                >
-                  Halaman Berikutnya
-                </button>
-              </div>
             </div>
           </article>
         </section>
@@ -973,12 +954,6 @@ const notifications = ref([
 ]);
 
 const jadwalMateri = ref([]);
-const jadwalPagination = reactive({
-  page: 1,
-  lastPage: 1,
-  hasNext: false,
-  hasPrev: false,
-});
 const isLoadingJadwal = ref(true);
 const successMessage = ref('');
 const errorMessage = ref('');
@@ -1135,33 +1110,16 @@ const handleLogout = async () => {
   }
 };
 
-const updatePaginationState = (meta = {}) => {
-  jadwalPagination.page = meta.current_page || 1;
-  jadwalPagination.lastPage = meta.last_page || 1;
-  jadwalPagination.hasNext = jadwalPagination.page < jadwalPagination.lastPage;
-  jadwalPagination.hasPrev = jadwalPagination.page > 1;
-};
-
-const loadJadwalMateri = async (page = jadwalPagination.page) => {
+const loadJadwalMateri = async () => {
   isLoadingJadwal.value = true;
   try {
-    const { data } = await axios.get('/api/guru/jadwal-materi', {
-      params: { page },
-    });
+    const { data } = await axios.get('/api/guru/jadwal-materi');
     jadwalMateri.value = data.data || [];
-    updatePaginationState(data.meta);
   } catch (error) {
     console.error('Gagal memuat jadwal guru:', error);
-    updatePaginationState();
   } finally {
     isLoadingJadwal.value = false;
   }
-};
-
-const changeJadwalPage = async (page) => {
-  if (page < 1 || page > jadwalPagination.lastPage) return;
-  jadwalPagination.page = page;
-  await loadJadwalMateri(page);
 };
 
 const resetAddForm = () => {
@@ -1276,8 +1234,7 @@ const submitAddSchedule = async () => {
     });
     showAddModal.value = false;
     setSuccess('Jadwal dan materi berhasil ditambahkan.');
-    jadwalPagination.page = 1;
-    await loadJadwalMateri(1);
+    await loadJadwalMateri();
   } catch (error) {
     console.error('Gagal menambahkan jadwal:', error);
     const serverErrors = error.response?.data?.errors;
