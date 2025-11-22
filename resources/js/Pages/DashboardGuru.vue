@@ -1065,11 +1065,21 @@ const materialInput = ref(null);
 const newMaterialInput = ref(null);
 const selectedSchedule = ref(null);
 const selectedMaterialFile = ref(null);
-const minScheduleDate = computed(() => {
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  return today.toISOString().slice(0, 10);
-});
+const formatLocalDateString = (date) => {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
+
+const parseDateInput = (value) => {
+  if (!value) return null;
+  const [year, month, day] = value.split('-').map(Number);
+  if (!year || !month || !day) return null;
+  return new Date(year, month - 1, day);
+};
+
+const minScheduleDate = computed(() => formatLocalDateString(new Date()));
 
 const addForm = reactive({
   topik: '',
@@ -1297,7 +1307,8 @@ const isValidTimeRange = (start, end) => {
 
 const isValidDate = (value) => {
   if (!value) return false;
-  const selected = new Date(value);
+  const selected = parseDateInput(value);
+  if (!selected) return false;
   selected.setHours(0, 0, 0, 0);
   const today = new Date();
   today.setHours(0, 0, 0, 0);
@@ -1518,7 +1529,7 @@ const badgeClass = (status) => {
 const openEditSchedule = (schedule) => {
   editForm.id = schedule.id;
   editForm.topik = schedule.topik;
-  editForm.tanggal = schedule.waktu_mulai ? new Date(schedule.waktu_mulai).toISOString().slice(0, 10) : '';
+  editForm.tanggal = schedule.waktu_mulai ? formatLocalDateString(new Date(schedule.waktu_mulai)) : '';
   const start = formatTime(schedule.waktu_mulai);
   const end = formatTime(schedule.waktu_selesai);
   editForm.jam_mulai = start ? start.replace('.', ':') : '';
