@@ -7,11 +7,6 @@ class JadwalSesi extends Model
     protected $table = 'jadwal_sesi';
     protected $guarded = ['id'];
 
-    protected $casts = [
-        'waktu_mulai' => 'datetime',
-        'waktu_selesai' => 'datetime',
-    ];
-
     public function guru()
     {
         return $this->belongsTo(User::class, 'guru_id');
